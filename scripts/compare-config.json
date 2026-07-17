@@ -1,0 +1,26 @@
+{
+  "setup": {
+    "status": "A confirmer",
+    "saison_commune": "A confirmer",
+    "competitions": {
+      "ligue_1": {
+        "football_data_id": "A confirmer",
+        "sportmonks_id": "A confirmer"
+      },
+      "premier_league": {
+        "football_data_id": "A confirmer",
+        "sportmonks_id": "A confirmer"
+      },
+      "champions_league": {
+        "football_data_id": "A confirmer",
+        "sportmonks_id": "A confirmer"
+      }
+    }
+  },
+  "limits": {
+    "max_rencontres_par_competition": 6,
+    "max_rencontres_total": 18,
+    "max_rencontres_repetitions": 5,
+    "max_repetitions_par_rencontre": 3
+  }
+}
