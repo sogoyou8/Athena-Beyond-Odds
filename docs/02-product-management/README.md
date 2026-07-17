@@ -4,6 +4,7 @@ Ce dossier regroupe les documents relatifs à la section **02 - Product Manageme
 
 ## Documents disponibles
 
+- [acceptance-criteria.md](acceptance-criteria.md) - *(Statut : Brouillon)*
 - [features.md](features.md) - *(Statut : Brouillon)*
 - [mvp-scope.md](mvp-scope.md) - *(Statut : Brouillon)*
 - [prioritization.md](prioritization.md) - *(Statut : Brouillon)*
