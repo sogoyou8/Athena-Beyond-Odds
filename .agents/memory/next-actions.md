@@ -1,9 +1,10 @@
-# Prochaines Actions (Next Actions)
+# Next Actions
 
-- [ ] Finaliser la création des règles, templates et structures de base.
-- [ ] Exécuter le script de migration de la documentation Notion brute.
-- [ ] Nettoyer et formater la documentation importée (titres, liens Notion).
-- [ ] Lancer les audits automatiques sur les 34 fichiers du Product Blueprint et les liens rompus.
-- [ ] Rédiger le rapport d'import `phase-0-import-report.md`.
-- [ ] Présenter l'arborescence et le rapport à l'utilisateur pour validation.
-- [ ] Effectuer le premier commit et push après approbation.
+- [ ] Rédiger et valider le Product Requirements Document
+- [ ] Rédiger et valider les User Personas
+- [ ] Rédiger et valider les User Stories
+- [ ] Formaliser le catalogue des fonctionnalités
+- [ ] Définir la méthode de priorisation
+- [ ] Valider la portée du MVP
+- [ ] Définir les critères d'acceptation
+- [ ] Produire le rapport de validation de la Phase 1
