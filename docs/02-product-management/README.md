@@ -5,6 +5,7 @@ Ce dossier regroupe les documents relatifs à la section **02 - Product Manageme
 ## Documents disponibles
 
 - [features.md](features.md) - *(Statut : Brouillon)*
+- [mvp-scope.md](mvp-scope.md) - *(Statut : Brouillon)*
 - [prioritization.md](prioritization.md) - *(Statut : Brouillon)*
 - [product-requirements-document.md](product-requirements-document.md) - *(Statut : Brouillon)*
 - [roadmap.md](roadmap.md) - *(Statut : À rédiger)*
