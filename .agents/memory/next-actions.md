@@ -6,5 +6,5 @@
 - [x] Formaliser le catalogue des fonctionnalités
 - [x] Définir la méthode de priorisation
 - [x] Valider la portée du MVP
-- [ ] Définir les critères d'acceptation
+- [x] Définir les critères d'acceptation
 - [ ] Produire le rapport de validation de la Phase 1
