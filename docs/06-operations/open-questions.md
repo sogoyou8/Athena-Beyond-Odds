@@ -26,7 +26,7 @@ Les questions doivent être résolues avant la phase d'architecture ou de concep
 - **Date d'ouverture :** 2026-07-17
 - **Contexte :** Le Blueprint mentionne un modèle Free/Premium sans définir le prix, la fréquence de facturation (mensuel/annuel), ni les modalités d'essai.
 - **Question :** Quel est le prix du plan Premium ? Y a-t-il une période d'essai gratuite ? Une facturation annuelle avec remise ?
-- **Impact :** Les exigences FR-023 et FR-024 restent incomplètes. La conception du tunnel de conversion et la page pricing en dépendent.
+- **Impact :** Les exigences relatives aux droits Premium, aux quotas Free et au parcours de conversion restent partiellement dépendantes de cette décision. La conception du parcours de conversion et de la présentation tarifaire en dépend.
 - **Documents concernés :** [`pricing.md`](../07-business/pricing.md), [`business-model.md`](../07-business/business-model.md), [`08-user-roles.md`](../08-product-blueprint/08-user-roles.md)
 - **Statut :** Ouverte
 

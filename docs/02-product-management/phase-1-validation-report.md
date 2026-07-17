@@ -117,12 +117,12 @@ Aucune décision de stack technique, d'infrastructure ou de fournisseur n'a ét�
 
 | Livrable | Résultat | Réserve propre au livrable | Action attendue |
 |:---|:---:|:---|:---|
-| Product Requirements Document | **Conforme sous réserve** | La dépendance de l'exigence `FR-016` (ligne 730) mentionne `FR-023`, un identifiant d'exigence non défini. | Remplacer la dépendance orpheline par l'identifiant de l'exigence d'administration existante (`FR-022`). |
+| Product Requirements Document | **Conforme** | La dépendance de l'exigence `FR-016` (ligne 730) vers `FR-023` a été résolue par son alignement sur `FR-022 — Administration minimale`. | — (Corrigé par alignement) |
 | User Personas | **Conforme** | Aucune réserve interne (les données démographiques sont identifiées comme hypothétiques conformément aux limites déclarées). | — |
 | User Stories | **Conforme** | Aucune réserve interne. | — |
 | Catalogue des fonctionnalités | **Conforme** | Aucune réserve interne. | — |
 | Framework de priorisation | **Conforme** | Aucune réserve interne. | — |
-| Périmètre MVP | **Conforme sous réserve** | Incohérence fonctionnelle sur le rôle de `PER-006` qualifié "Hors MVP" et divergences de rôle sur `PER-002` et `PER-003`. | Mettre à jour la section 5 pour aligner les qualifications des personas et inclure `PER-006` conformément au catalogue. |
+| Périmètre MVP | **Conforme** | Incohérence fonctionnelle sur le rôle de `PER-006` et les divergences de qualification résolues par l'alignement sur `user-personas.md`. | — (Corrigé par alignement des six personas) |
 | Critères d'acceptation | **Conforme** | Aucune réserve interne (les dépendances à des questions ouvertes ou à des seuils opérationnels sont documentées). | — |
 
 ---
@@ -141,9 +141,9 @@ Aucune décision de stack technique, d'infrastructure ou de fournisseur n'a ét�
 
 ### 7.2 Réserves
 
-- La dépendance de `FR-016` (ligne 730) mentionne `FR-023 (administration)`, un identifiant non défini dans le PRD (référence orpheline documentée en E-002).
+- La dépendance de `FR-016` (ligne 730) mentionnait `FR-023 (administration)`, ce qui a été corrigé par son alignement sur l'exigence existante `FR-022`.
 
-**Verdict : Conforme sous réserve.**
+**Verdict : Conforme.**
 
 ---
 
@@ -237,10 +237,9 @@ Aucune réserve interne.
 
 ### 12.2 Réserves
 
-- Incohérence fonctionnelle sur le statut de `PER-006` (Admin) qualifié "Hors MVP" à la section 5, en contradiction avec l'inclusion de l'administration minimale (`FEAT-018`).
-- Divergences de qualifications pour `PER-002` et `PER-003` qualifiés "Principaux" à la section 5, en contradiction avec leur rôle secondaire dans `user-personas.md`.
+- Les divergences rédactionnelles et fonctionnelles sur le rôle et les qualifications des personas (`PER-001` à `PER-006`) ont été entièrement corrigées par alignement sur les définitions canoniques de `user-personas.md`.
 
-**Verdict : Conforme sous réserve.**
+**Verdict : Conforme.**
 
 ---
 
@@ -279,9 +278,9 @@ Aucune réserve interne.
 
 ### 14.2 Incohérences de nomenclature
 
-Les divergences de noms et de qualifications de personas entre `user-personas.md` et `mvp-scope.md` sont documentées en §25.
+Les divergences de noms et de qualifications de personas entre `user-personas.md` et `mvp-scope.md` ont été résolues (voir §25).
 
-Les références orphelines `FR-023` et `FR-024` dans `open-questions.md` et le PRD sont documentées en §24.
+Les références orphelines `FR-023` et `FR-024` dans `open-questions.md` et le PRD ont été supprimées et corrigées (voir §24).
 
 ### 14.3 Cohérence des seuils et métriques
 
@@ -313,7 +312,7 @@ Les références orphelines `FR-023` et `FR-024` dans `open-questions.md` et le 
 | FR-013 | FEAT-002 | ✅ | — |
 | FR-014 | FEAT-019 | ✅ | — |
 | FR-015 | FEAT-020 | ✅ | — |
-| FR-016 | FEAT-017 | ✅ | Cité comme dépendance de FR-023 orpheline |
+| FR-016 | FEAT-017 | ✅ | Alignée sur FR-022 (correction E-002) |
 | FR-017 | FEAT-003 | ✅ | — |
 | FR-018 | FEAT-016 | ✅ | — |
 | FR-019 | FEAT-012 | ✅ | — |
@@ -390,7 +389,7 @@ Les références orphelines `FR-023` et `FR-024` dans `open-questions.md` et le 
 | Premium | FEAT-016 | ✅ Inclus P1 | Tarifs et quotas à définir (OQ-001, OQ-002) |
 | Signalement | FEAT-017 | ✅ Inclus P2 | — |
 | Administration | FEAT-018 | ✅ Inclus P1 | — |
-| Résilience | FEAT-019, FEAT-020 | ✅ Inclus P1 | FEAT-019 : dépendance FR-023 orpheline |
+| Résilience | FEAT-019, FEAT-020 | ✅ Inclus P1 | — |
 | Reportées V1/V2 | FEAT-021 à FEAT-026 | 🔵 Hors MVP | Priorités à reclassifier (voir §22) |
 
 **Couverture : 20/20 FEAT MVP incluses. 6/6 FEAT reportées correctement exclues.**
@@ -433,11 +432,11 @@ Les références orphelines `FR-023` et `FR-024` dans `open-questions.md` et le 
 | Objet | Plage attendue | Nombre attendu | Nombre couvert | Couverture | Statut |
 |:---|:---|---:|---:|---:|:---|
 | Epics | EP-001 à EP-016 | 16 | 16 | 100 % | ✅ Conforme |
-| Personas | PER-001 à PER-006 | 6 | 6 | 100 % | ⚠️ Conforme sous réserve (divergences de noms et rôles) |
+| Personas | PER-001 à PER-006 | 6 | 6 | 100 % | ✅ Conforme (alignement effectué) |
 | User Stories | US-001 à US-020 | 20 | 20 | 100 % | ✅ Conforme |
-| FR | FR-001 à FR-022 | 22 | 22 | 100 % | ⚠️ Conforme sous réserve (FR-023/024 orphelins dans sources) |
+| FR | FR-001 à FR-022 | 22 | 22 | 100 % | ✅ Conforme (références orphelines résolues) |
 | NFR | NFR-001 à NFR-012 | 12 | 12 | 100 % | ✅ Conforme |
-| Features | FEAT-001 à FEAT-026 | 26 | 26 | 100 % | ⚠️ Conforme sous réserve (dépendance FR-023 orpheline dans le PRD) |
+| Features | FEAT-001 à FEAT-026 | 26 | 26 | 100 % | ✅ Conforme (dépendance résolue) |
 | Acceptance Criteria | AC-001 à AC-076 | 76 | 76 | 100 % | ✅ Conforme |
 
 ### Exemples de traçabilité complète
@@ -477,7 +476,7 @@ Les décisions suivantes ont été identifiées par l'audit. Aucune n'est actée
 | ID | Sujet | Impact | Bloquante ? | Décision attendue | Responsable attendu | Échéance recommandée | Documents impactés |
 |:---|:---|:---|:---|:---|:---|:---|:---|
 | **OQ-001** | Quotas Free | Limites d'usage et conversion | Non — ne bloque pas le passage à la Phase 2 | Valeurs numériques exactes des quotas | Fondateur ABYSS | Avant design UX/UI (Phase 3) | `features.md`, `acceptance-criteria.md`, `open-questions.md`, `product-requirements-document.md` |
-| **OQ-002** | Tarification Premium | Conversion, monétisation **(contient également la référence orpheline FR-023/FR-024)** | Non — ne bloque pas le passage à la Phase 2 | Prix, périodicité, essai gratuit | Fondateur ABYSS | Avant design UX/UI (Phase 3) | `open-questions.md`, `pricing.md`, `business-model.md` |
+| **OQ-002** | Tarification Premium | Conversion, monétisation | Non — ne bloque pas le passage à la Phase 2 | Prix, périodicité, essai gratuit | Fondateur ABYSS | Avant design UX/UI (Phase 3) | `open-questions.md`, `pricing.md`, `business-model.md` |
 | **OQ-003** | Fournisseurs de données sportives | Ingestion data, fraîcheur | Oui — bloque le passage à la Phase 2 | Valider la disponibilité, la qualité et les conditions d'accès aux données nécessaires | Fondateur ABYSS | Avant Phase 2 | `17-external-integrations.md`, `technical-architecture.md` |
 | **OQ-004** | Langue(s) initiale(s) du produit | Onboarding, traduction | Non — ne bloque pas le passage à la Phase 2 | Définir les langues initiales de l'interface utilisateur | Fondateur ABYSS | Avant design UX/UI (Phase 3) | `product-requirements-document.md`, `acceptance-criteria.md` |
 | **OQ-005** | MFA pour utilisateurs finaux | Sécurité d'accès | Non — ne bloque pas le passage à la Phase 2 | Définir si MFA obligatoire pour utilisateurs finaux | Fondateur ABYSS | Avant la validation du modèle de sécurité utilisateur ou, au plus tard, avant la Phase 3 | `21-security-model.md`, `acceptance-criteria.md` |
@@ -497,7 +496,7 @@ La recherche exacte dans les fichiers du dépôt révèle la situation suivante 
 | **FR-023** | `docs/06-operations/open-questions.md` | Ligne 29 | `- **Impact :** Les exigences FR-023 et FR-024 restent incomplètes.` | Simple mention (explications de OQ-002) |
 | **FR-024** | `docs/06-operations/open-questions.md` | Ligne 29 | `- **Impact :** Les exigences FR-023 et FR-024 restent incomplètes.` | Simple mention (explications de OQ-002) |
 
-**Conclusion :** FR-023 et FR-024 ne sont pas définies dans la liste des exigences fonctionnelles, qui s’arrête à FR-022, mais elles sont mentionnées comme références dans `docs/02-product-management/product-requirements-document.md` à la ligne 730 et dans `docs/06-operations/open-questions.md` à la ligne 29.
+**Conclusion :** Les références orphelines FR-023 et FR-024 ont été supprimées et résolues. La dépendance de FR-016 a été alignée sur FR-022, et open-questions.md a été reformulé pour ne pas inclure ces identifiants orphelins. Aucune référence active ou normative à FR-023 ou FR-024 ne subsiste dans le PRD ou dans open-questions.md. Les occurrences restantes dans le rapport de validation sont historiques et documentent un écart résolu.
 
 ---
 
@@ -516,9 +515,9 @@ La recherche exacte dans les fichiers du dépôt révèle la situation suivante 
 
 ### 25.2 Classification des écarts
 
-- **E-001** — Divergences rédactionnelles de noms de personas. Noms fictifs divergents dans `mvp-scope.md`. Gravité : Mineure. Bloquant : Non. Action : Dette rédactionnelle non bloquante à harmoniser ultérieurement.
-- **E-002** — Références orphelines FR-023 et FR-024. Mentions orphelines dans `product-requirements-document.md` ligne 730 et `open-questions.md` ligne 29. Gravité : Majeure. Bloquant : Oui (bloquant avant clôture Phase 1). Action : Aligner sur les FR existantes (`FR-022` et `FR-021`).
-- **E-003** — Divergences fonctionnelles de qualification ou de périmètre des personas dans MVP Scope. `PER-006` qualifié "Hors MVP" et `PER-002`/`PER-003` qualifiés "Principaux" dans `mvp-scope.md`. Gravité : Majeure. Bloquant : Oui (bloquant avant Phase 2). Action : Aligner `mvp-scope.md` sur `user-personas.md` pour inclure `PER-006` et corriger les rôles.
+- **E-001** — Divergences rédactionnelles de noms de personas. Noms fictifs divergents dans `mvp-scope.md`. Statut : **Résolu** (les six personas ont été alignés sur leurs définitions canoniques).
+- **E-002** — Références orphelines FR-023 et FR-024. Mentions orphelines dans `product-requirements-document.md` ligne 730 et `open-questions.md` ligne 29. Statut : **Résolu** (aligné sur FR-022).
+- **E-003** — Divergences fonctionnelles de qualification ou de périmètre des personas dans MVP Scope. `PER-006` qualifié "Hors MVP" et `PER-002`/`PER-003` qualifiés "Principaux" dans `mvp-scope.md`. Statut : **Résolu** (les rôles et qualifications ont été corrigés).
 
 ---
 
@@ -543,15 +542,19 @@ La recherche exacte dans les fichiers du dépôt révèle la situation suivante 
 
 ### 27.1 Récapitulatif des écarts détectés
 
-| ID | Description | Documents concernés | Gravité | Bloquant avant Phase 2 ? | Action |
+| ID | Description | Documents concernés | Gravité | Bloquant avant Phase 2 ? | Statut |
 |:---|:---|:---|:---|:---:|:---|
-| **E-001** | Divergences de noms fictifs de personas | `mvp-scope.md` ↔ `user-personas.md` | Mineure | Non | Dette rédactionnelle non bloquante |
-| **E-002** | Mentions orphelines de FR-023/FR-024 | `product-requirements-document.md`, `open-questions.md` | Majeure | Oui (bloquant avant clôture Phase 1) | Aligner sur les FR existantes |
-| **E-003** | Divergences fonctionnelles (PER-006 Hors MVP, PER-002/PER-003 principaux) | `mvp-scope.md` ↔ `user-personas.md` | Majeure | Oui (bloquant avant Phase 2) | Corriger `mvp-scope.md` |
+| **E-001** | Divergences de noms fictifs de personas | `mvp-scope.md` ↔ `user-personas.md` | Mineure | Non | **Résolu** |
+| **E-002** | Mentions orphelines de FR-023/FR-024 | `product-requirements-document.md`, `open-questions.md` | Majeure | Non — écart résolu | **Résolu** |
+| **E-003** | Divergences fonctionnelles (PER-006 Hors MVP, PER-002/PER-003 principaux) | `mvp-scope.md` ↔ `user-personas.md` | Majeure | Non — écart résolu | **Résolu** |
+
+> **Notes historiques sur les écarts résolus :**
+> - **E-002 :** anciennement bloquant avant la clôture finale de la Phase 1 (aligné et résolu).
+> - **E-003 :** anciennement bloquant avant le passage à la Phase 2 (aligné et résolu).
 
 ### 27.2 Conclusion sur les contradictions
 
-Des contradictions non résolues existent dans les livrables de Phase 1. E-002 constitue une rupture de traçabilité avec le PRD officiel. E-003 constitue une contradiction fonctionnelle sur le rôle de PER-006 et la qualification de PER-002/PER-003. Ces écarts ne bloquent pas la soumission à la revue humaine, mais doivent être explicitement acceptés ou corrigés lors de cette revue.
+Les contradictions et ruptures de traçabilité identifiées lors de l'audit initial (E-001, E-002, E-003) ont été entièrement corrigées par l'alignement sur les exigences et personas officiels. Il ne subsiste aucune contradiction ou écart actif de traçabilité dans les documents sources du dépôt.
 
 ---
 
@@ -560,9 +563,9 @@ Des contradictions non résolues existent dans les livrables de Phase 1. E-002 c
 | Document | État actuel | Action requise | Priorité |
 |:---|:---:|:---|:---:|
 | `decision-log.md` | Vide | À alimenter après décisions humaines sur les recommandations de priorité, les questions ouvertes bloquantes, l'approbation du périmètre MVP et l'approbation finale de la Phase 1 | Haute |
-| `open-questions.md` (OQ-002) | Référence orpheline FR-023/FR-024 | Corriger après décision humaine sur l'intention réelle | Haute |
-| PRD (Ligne 730) | Référence orpheline FR-023 en dépendance | Corriger après décision humaine | Haute |
-| `mvp-scope.md` (§5 Personas) | Qualifications PER-002, PER-003, PER-006 divergentes | Aligner après décision humaine sur la qualification officielle | Haute |
+| `open-questions.md` (OQ-002) | Référence orpheline FR-023/FR-024 | **Résolu** | Haute |
+| PRD (Ligne 730) | Référence orpheline FR-023 en dépendance | **Résolu** | Haute |
+| `mvp-scope.md` (§5 Personas) | Qualifications PER-002, PER-003, PER-006 divergentes | **Résolu** | Haute |
 | `user-journeys.md` | À rédiger | Requis avant Phase 3 (UX/UI) | Moyenne |
 | `roadmap.md` | À rédiger | Requis avant communication externe | Faible |
 | `docs/07-business/pricing.md` | Non créé | Requis pour résoudre OQ-002 | Haute |
@@ -576,7 +579,6 @@ Des contradictions non résolues existent dans les livrables de Phase 1. E-002 c
 ### Obligatoires avant passage en Phase 2
 
 - Revue humaine des sept livrables par le Fondateur ABYSS.
-- Décision sur l'écart E-003 (qualifications personas et rôle de PER-006).
 - Approbation explicite du périmètre MVP (20 FEAT incluses).
 - Décision sur les recommandations de priorisation requises pour le passage.
 - Traitement ou acceptation formelle de OQ-003 (fournisseurs de données) et OQ-006 (compétitions MVP).
@@ -585,9 +587,7 @@ Des contradictions non résolues existent dans les livrables de Phase 1. E-002 c
 
 ### Obligatoire avant clôture et approbation finale de la Phase 1
 
-- Correction ou décision formelle concernant les mentions orphelines `FR-023` et `FR-024` (E-002).
-- Mise à jour des documents concernés (PRD et questions ouvertes).
-- Enregistrement de la décision finale concernant E-002 dans le Decision Log.
+- Enregistrement de l'alignement des personas et de la résolution des références orphelines dans le Decision Log.
 - Approbation finale du rapport de validation.
 
 ### Pouvant rester ouvertes jusqu'à la Phase 3
@@ -615,7 +615,7 @@ Des contradictions non résolues existent dans les livrables de Phase 1. E-002 c
 | Acceptance Criteria contient AC-001 à AC-076 (76 critères) | ✅ |
 | Plages continues sans manquants ni doublons | ✅ |
 | Aucun choix technologique, infrastructure ou fournisseur imposé | ✅ |
-| 7 commits présents sur la branche depuis main | ✅ |
+| 9 commits présents sur la branche depuis main | ✅ |
 | Branche distante synchronisée | ✅ |
 
 ### Checklist d'approbation humaine
@@ -644,12 +644,10 @@ Des contradictions non résolues existent dans les livrables de Phase 1. E-002 c
 ### Réserves finales
 
 #### Bloquantes avant Phase 2 (Architecture technique)
-- **Divergences de personas (E-003) :** `mvp-scope.md` exclut indûment `PER-006` (Admin) qualifié de "Hors MVP" et surévalue `PER-002/PER-003` en "Principaux".
 - **Questions bloquantes OQ-003 et OQ-006 :** Choix des fournisseurs et compétitions MVP requis pour concevoir l'ingestion de données.
 
 #### Bloquantes avant clôture finale de la Phase 1
-- **Mentions orphelines FR-023/FR-024 (E-002) :** Références dans le PRD ligne 730 et `open-questions.md` ligne 29 à aligner sur les exigences existantes.
-- **Decision Log vide :** Doit être initialisé pour consigner les arbitrages de priorités.
+- **Decision Log vide :** Doit être initialisé pour consigner les arbitrages de priorités et la résolution des écarts.
 
 #### Non bloquantes (pouvant rester ouvertes jusqu'à la Phase 3)
 - **Questions ouvertes d'usage OQ-001, OQ-002, OQ-004, OQ-005 :** Quotas Free, tarifs, langues et MFA pour utilisateurs finaux.
@@ -670,6 +668,7 @@ Des contradictions non résolues existent dans les livrables de Phase 1. E-002 c
 | Version | Date | Auteur | Description |
 |:---|:---|:---|:---|
 | 1.0 | 2026-07-17 | Fondateur ABYSS + Antigravity | Rédaction initiale — audit des 7 livrables, cohérence croisée, matrice globale de couverture, audit des références orphelines FR-023/FR-024, audit des divergences de personas, risques résiduels, conditions de passage à la Phase 2. |
+| 1.1 | 2026-07-17 | Fondateur ABYSS + Antigravity | Mise à jour après alignement complet des personas (E-001, E-003) et résolution des dépendances orphelines (E-002). |
 
 ---
 

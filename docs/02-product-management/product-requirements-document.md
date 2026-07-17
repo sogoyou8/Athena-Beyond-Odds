@@ -727,7 +727,7 @@ Référence : [MVP Scope](../08-product-blueprint/30-mvp-scope.md)
 - **Règles associées :**
   - Les signalements déclenchent un ticket dans le système d'administration.
   - Les corrections importantes conservent l'ancienne valeur, la nouvelle, la raison, la source, l'auteur et la date.
-- **Dépendances :** FR-023 (administration)
+- **Dépendances :** FR-022 — Administration minimale
 - **Critères d'acceptation préliminaires :**
   - [ ] Le formulaire de signalement est accessible depuis le Match Center.
   - [ ] Le signalement crée un ticket traçable.
