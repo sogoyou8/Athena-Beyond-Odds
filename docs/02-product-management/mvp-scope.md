@@ -59,12 +59,12 @@ Le MVP s'adresse prioritairement aux personas suivants décrits dans le document
 
 | Persona | Rôle au MVP | Intérêt principal dans le MVP |
 |:---|:---|:---|
-| **PER-001 — Thomas "L'Analyste Méthodique"** | Principal | Recherche de transparence, comparaison de probabilités, calibration et accès aux sources. |
-| **PER-002 — Alexandre "Le Passionné Occasionnel"** | Principal | Dashboard personnalisé, résumé généré par Explainable AI et alertes de match de base. |
-| **PER-003 — Julien "Le Chasseur de Value"** | Principal | Accès au Match Center et aux probabilités normalisées par rapport au marché. |
-| **PER-004 — Pierre "Le Trader Professionnel"** | Secondaire | Vérification de la fraîcheur des données et de l'intégrité de l'historique probabiliste. |
-| **PER-005 — Sarah "La Directrice des Médias"** | Secondaire | Rapidité d'accès au Match Center et export minimal des résumés. |
-| **PER-006 — Marc "Le Développeur API"** | Hors MVP | N'utilise pas l'API publique (exclue du MVP) ; utilise l'interface web classique. |
+| **PER-001 — Karim** | Principal | Amateur de football — Accès simplifié, Dashboard d'accueil personnalisé, résumé d'analyse Explainable AI et alertes de match de base. |
+| **PER-002 — Léa** | Secondaire | Utilisatrice analytique — Recherche de transparence, consultation des statistiques avancées, des probabilités complètes et des sources. |
+| **PER-003 — Amara** | Secondaire | Créatrice de contenu / journaliste — Recherche de faits saillants et de résumés clairs pour illustrer ses publications. |
+| **PER-004 — Thomas** | Secondaire | Analyste professionnel — Rigueur méthodologique, suivi des indicateurs de fraîcheur et traçabilité complète. |
+| **PER-005 — Sébastien** | Secondaire | Utilisateur marchés — Comparaison et analyse statistique des probabilités sans promesse de gain. |
+| **PER-006 — Nicolas** | Interne et opérationnel | Administrateur interne — Gestion des anomalies, supervision opérationnelle et pilotage de la qualité. |
 
 ---
 
