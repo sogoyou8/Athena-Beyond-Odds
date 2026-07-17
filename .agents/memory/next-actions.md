@@ -1,6 +1,6 @@
 # Next Actions
 
-- [ ] Rédiger et valider le Product Requirements Document
+- [x] Rédiger et valider le Product Requirements Document
 - [ ] Rédiger et valider les User Personas
 - [ ] Rédiger et valider les User Stories
 - [ ] Formaliser le catalogue des fonctionnalités

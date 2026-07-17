@@ -9,5 +9,5 @@ Ce dossier regroupe les documents relatifs à la section **02 - Product Manageme
 - [product-requirements-document.md](product-requirements-document.md) - *(Statut : Brouillon)*
 - [roadmap.md](roadmap.md) - *(Statut : À rédiger)*
 - [user-journeys.md](user-journeys.md) - *(Statut : À rédiger)*
-- [user-personas.md](user-personas.md) - *(Statut : À rédiger)*
+- [user-personas.md](user-personas.md) - *(Statut : Brouillon)*
 - [user-stories.md](user-stories.md) - *(Statut : À rédiger)*
