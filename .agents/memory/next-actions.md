@@ -3,7 +3,7 @@
 - [x] Rédiger et valider le Product Requirements Document
 - [x] Rédiger et valider les User Personas
 - [x] Rédiger et valider les User Stories
-- [ ] Formaliser le catalogue des fonctionnalités
+- [x] Formaliser le catalogue des fonctionnalités
 - [ ] Définir la méthode de priorisation
 - [ ] Valider la portée du MVP
 - [ ] Définir les critères d'acceptation
