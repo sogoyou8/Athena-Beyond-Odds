@@ -1,0 +1,34 @@
+name: Demande de fonctionnalité
+description: Suggérez une idée pour ce projet.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Partagez votre idée pour améliorer Athena.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Votre demande est-elle liée à un problème ?
+      description: Une description claire et concise du problème que vous rencontrez.
+      placeholder: Je rencontre des difficultés lorsque...
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution suggérée
+      description: Une description claire et concise de la fonctionnalité ou de la modification souhaitée.
+      placeholder: J'aimerais que l'application permette de...
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives envisagées
+      description: Toute autre solution alternative que vous avez envisagée.
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexte supplémentaire
+      description: Tout autre contexte ou capture d'écran sur la demande de fonctionnalité ici.

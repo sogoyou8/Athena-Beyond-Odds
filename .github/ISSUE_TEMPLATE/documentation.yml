@@ -1,0 +1,18 @@
+name: Documentation
+description: Suggérez des améliorations ou signalez des erreurs dans la documentation.
+labels: [documentation]
+body:
+  - type: textarea
+    id: documentation-issue
+    attributes:
+      label: Amélioration ou correction de la documentation
+      description: Veuillez décrire la page, la section ou l'élément à mettre à jour.
+      placeholder: La page X comporte une erreur dans la section Y ou nécessite plus de détails.
+    validations:
+      required: true
+  - type: textarea
+    id: suggested-content
+    attributes:
+      label: Contenu suggéré
+      description: Écrivez le contenu tel qu'il devrait apparaître.
+      placeholder: Nouvelle formulation ou informations supplémentaires à ajouter.
