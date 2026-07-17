@@ -1,14 +1,14 @@
 # Dossier d'arbitrage de Phase 1 — OQ-003 et OQ-006
 
-> **Statut :** À décider par le Fondateur ABYSS  
-> **Version :** 1.0  
+> **Statut :** Décision conditionnelle du Fondateur ABYSS
+> **Version :** 1.1
 > **Phase :** Phase 1 — Product Definition  
 
 Ce dossier de décision centralise les éléments nécessaires pour résoudre conjointement deux questions ouvertes bloquantes pour le passage à la Phase 2 (Architecture technique) :
 - **OQ-003 :** Disponibilité et conditions d'accès aux données sportives.
 - **OQ-006 :** Périmètre des compétitions couvertes par le MVP.
 
-Ce document ne constitue pas une spécification technique ni une décision validée ; il s'agit d'un pack de préparation neutre pour arbitrage par le Fondateur.
+Ce document constitue le support de décision conditionnelle acté par le Fondateur.
 
 ---
 
@@ -79,11 +79,11 @@ Le choix du périmètre des compétitions doit être évalué selon les critère
 
 | Champ | Décision du Fondateur |
 |:---|:---|
-| **Option retenue** | À décider |
-| **Compétitions incluses** | À décider |
-| **Justification** | À décider |
-| **Risques acceptés** | À décider |
-| **Date d'effet** | À décider |
+| **Option retenue** | Intermédiaire resserrée |
+| **Compétitions incluses** | 2 à 3 compétitions maximum — liste exacte à confirmer |
+| **Justification** | Permet une couverture d'intérêt pour les testeurs tout en limitant la complexité initiale de l'ingestion |
+| **Risques acceptés** | Données explicatives potentiellement incomplètes, réduction possible de la liste avant réalisation |
+| **Date d'effet** | 2026-07-17 |
 
 ---
 
@@ -112,12 +112,12 @@ Pour faciliter l'arbitrage, deux méthodes de résolution sont soumises au Fonda
 
 | Élément | Décision |
 |:---|:---|
-| **OQ-003 validée ?** | À décider |
-| **Conditions ou réserves** | À décider |
-| **OQ-006 validée ?** | À décider |
-| **Option de périmètre retenue** | À décider |
-| **Liste des compétitions** | À décider |
-| **Risques acceptés** | À décider |
-| **Passage en Phase 2 autorisé ?** | À décider |
+| **OQ-003 validée ?** | Oui, sous conditions |
+| **Conditions ou réserves** | Confirmer une source couvrant de manière fiable le périmètre MVP, avec des droits d'usage compatibles, une fraîcheur adaptée aux parcours du MVP et un coût soutenable. |
+| **OQ-006 validée ?** | Oui, sous conditions |
+| **Option de périmètre retenue** | Intermédiaire resserrée |
+| **Liste des compétitions** | 2 à 3 compétitions maximum — liste exacte à confirmer |
+| **Risques acceptés** | Couverture initiale limitée, données explicatives potentiellement incomplètes et réduction possible du périmètre avant réalisation |
+| **Passage en Phase 2 autorisé ?** | Oui, sous réserve de validation factuelle de la source et des compétitions retenues |
 | **Responsable de la décision** | Fondateur ABYSS |
-| **Date** | À décider |
+| **Date** | 2026-07-17 |

@@ -477,10 +477,10 @@ Les décisions suivantes ont été identifiées par l'audit. Aucune n'est actée
 |:---|:---|:---|:---|:---|:---|:---|:---|
 | **OQ-001** | Quotas Free | Limites d'usage et conversion | Non — ne bloque pas le passage à la Phase 2 | Valeurs numériques exactes des quotas | Fondateur ABYSS | Avant design UX/UI (Phase 3) | `features.md`, `acceptance-criteria.md`, `open-questions.md`, `product-requirements-document.md` |
 | **OQ-002** | Tarification Premium | Conversion, monétisation | Non — ne bloque pas le passage à la Phase 2 | Prix, périodicité, essai gratuit | Fondateur ABYSS | Avant design UX/UI (Phase 3) | `open-questions.md`, `pricing.md`, `business-model.md` |
-| **OQ-003** | Fournisseurs de données sportives | Ingestion data, fraîcheur | Oui — bloque le passage à la Phase 2 | Valider la disponibilité, la qualité et les conditions d'accès aux données nécessaires | Fondateur ABYSS | Avant Phase 2 | `17-external-integrations.md`, `technical-architecture.md` |
+| **OQ-003** | Fournisseurs de données sportives | Ingestion data, fraîcheur | Décision conditionnelle — validation factuelle restante | Valider la disponibilité, la qualité et les conditions d'accès aux données nécessaires | Fondateur ABYSS | Avant Phase 2 (orientation approuvée sous conditions) | `17-external-integrations.md`, `technical-architecture.md` |
 | **OQ-004** | Langue(s) initiale(s) du produit | Onboarding, traduction | Non — ne bloque pas le passage à la Phase 2 | Définir les langues initiales de l'interface utilisateur | Fondateur ABYSS | Avant design UX/UI (Phase 3) | `product-requirements-document.md`, `acceptance-criteria.md` |
 | **OQ-005** | MFA pour utilisateurs finaux | Sécurité d'accès | Non — ne bloque pas le passage à la Phase 2 | Définir si MFA obligatoire pour utilisateurs finaux | Fondateur ABYSS | Avant la validation du modèle de sécurité utilisateur ou, au plus tard, avant la Phase 3 | `21-security-model.md`, `acceptance-criteria.md` |
-| **OQ-006** | Périmètre compétitions MVP | Envergure ingestion | Oui — bloque le passage à la Phase 2 | Définir les compétitions du périmètre MVP | Fondateur ABYSS | Avant Phase 2 | `30-mvp-scope.md`, `mvp-scope.md` |
+| **OQ-006** | Périmètre compétitions MVP | Envergure ingestion | Décision conditionnelle — validation factuelle restante | Définir les compétitions du périmètre MVP | Fondateur ABYSS | Avant Phase 2 (orientation approuvée sous conditions) | `30-mvp-scope.md`, `mvp-scope.md` |
 
 ---
 
@@ -562,7 +562,7 @@ Les contradictions et ruptures de traçabilité identifiées lors de l'audit ini
 
 | Document | État actuel | Action requise | Priorité |
 |:---|:---:|:---|:---:|
-| `decision-log.md` | Vide | À alimenter après décisions humaines sur les recommandations de priorité, les questions ouvertes bloquantes, l'approbation du périmètre MVP et l'approbation finale de la Phase 1 | Haute |
+| `decision-log.md` | Initialisé (DEC-001) | À alimenter après décisions humaines sur les recommandations de priorité, la validation factuelle des sources de données et compétitions, l'approbation du périmètre MVP et l'approbation finale de la Phase 1 | Haute |
 | `open-questions.md` (OQ-002) | Référence orpheline FR-023/FR-024 | **Résolu** | Haute |
 | PRD (Ligne 730) | Référence orpheline FR-023 en dépendance | **Résolu** | Haute |
 | `mvp-scope.md` (§5 Personas) | Qualifications PER-002, PER-003, PER-006 divergentes | **Résolu** | Haute |
@@ -581,13 +581,14 @@ Les contradictions et ruptures de traçabilité identifiées lors de l'audit ini
 - Revue humaine des sept livrables par le Fondateur ABYSS.
 - Approbation explicite du périmètre MVP (20 FEAT incluses).
 - Décision sur les recommandations de priorisation requises pour le passage.
-- Traitement ou acceptation formelle de OQ-003 (fournisseurs de données) et OQ-006 (compétitions MVP).
 - Alimentation du Decision Log avec les arbitrages nécessaires au passage.
 - Approbation conditionnelle de ce rapport.
 
 ### Obligatoire avant clôture et approbation finale de la Phase 1
 
-- Enregistrement de l'alignement des personas et de la résolution des références orphelines dans le Decision Log.
+- Validation factuelle de la source de données sportives (OQ-003).
+- Validation de la liste exacte des 2 à 3 compétitions du périmètre MVP (OQ-006).
+- Enregistrement des décisions finales confirmées dans le Decision Log.
 - Approbation finale du rapport de validation.
 
 ### Pouvant rester ouvertes jusqu'à la Phase 3
@@ -639,19 +640,16 @@ Les contradictions et ruptures de traçabilité identifiées lors de l'audit ini
 
 ### Conclusion
 
-**Prête sous réserves**
+**Phase 1 approuvable sous conditions — préparation de la Phase 2 autorisée, sous réserve de confirmation de la source de données et de la liste exacte des compétitions MVP.**
 
 ### Réserves finales
 
-#### Bloquantes avant Phase 2 (Architecture technique)
-- **Questions bloquantes OQ-003 et OQ-006 :** Choix des fournisseurs et compétitions MVP requis pour concevoir l'ingestion de données.
-
-#### Bloquantes avant clôture finale de la Phase 1
-- **Decision Log vide :** Doit être initialisé pour consigner les arbitrages de priorités et la résolution des écarts.
+#### Bloquantes avant validation finale de la Phase 1 (en suspens)
+- **Validation factuelle OQ-003 et OQ-006 :** Confirmer la source de données et la liste des compétitions MVP.
+- **Droits d'usage et coûts :** Vérifier les aspects juridiques et financiers des données.
 
 #### Non bloquantes (pouvant rester ouvertes jusqu'à la Phase 3)
 - **Questions ouvertes d'usage OQ-001, OQ-002, OQ-004, OQ-005 :** Quotas Free, tarifs, langues et MFA pour utilisateurs finaux.
-- **Écart rédactionnel E-001 :** Divergences de noms de personas dans `mvp-scope.md`.
 
 ---
 
@@ -669,6 +667,7 @@ Les contradictions et ruptures de traçabilité identifiées lors de l'audit ini
 |:---|:---|:---|:---|
 | 1.0 | 2026-07-17 | Fondateur ABYSS + Antigravity | Rédaction initiale — audit des 7 livrables, cohérence croisée, matrice globale de couverture, audit des références orphelines FR-023/FR-024, audit des divergences de personas, risques résiduels, conditions de passage à la Phase 2. |
 | 1.1 | 2026-07-17 | Fondateur ABYSS + Antigravity | Mise à jour après alignement complet des personas (E-001, E-003) et résolution des dépendances orphelines (E-002). |
+| 1.2 | 2026-07-17 | Fondateur ABYSS + Antigravity | Enregistrement de l'arbitrage conditionnel DEC-001 (OQ-003, OQ-006) et ajustement des conditions de passage en Phase 2. |
 
 ---
 

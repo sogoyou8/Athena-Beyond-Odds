@@ -39,7 +39,7 @@ Les questions doivent être résolues avant la phase d'architecture ou de concep
 - **Question :** Quels fournisseurs de données sportives sont envisagés pour le MVP (ex. : API-Football, Opta, StatsBomb, SportRadar) ? Y a-t-il déjà un accord ou un budget identifié ?
 - **Impact :** La faisabilité de FR-005, FR-006, FR-007 et NFR-010 dépend de la disponibilité et de la qualité des données fournisseurs. Cette décision impacte l'architecture data et les coûts.
 - **Documents concernés :** [`17-external-integrations.md`](../08-product-blueprint/17-external-integrations.md), [`technical-architecture.md`](../04-technology/technical-architecture.md)
-- **Statut :** Ouverte
+- **Statut :** Décision conditionnelle — validation factuelle restante (orientation approuvée le 2026-07-17 par DEC-001 ; la source exacte reste à confirmer, ainsi que la couverture, la qualité, la continuité, les droits d'usage et le coût).
 
 ---
 
@@ -72,4 +72,4 @@ Les questions doivent être résolues avant la phase d'architecture ou de concep
 - **Question :** Quelles ligues ou compétitions de football seront couvertes au MVP (ex. : Ligue 1, Premier League, Champions League, La Liga) ? Combien de compétitions minimum ?
 - **Impact :** La portée des données à ingérer, des modèles à calibrer et de la couverture du Match Center en dépend directement.
 - **Documents concernés :** [`30-mvp-scope.md`](../08-product-blueprint/30-mvp-scope.md), [`05-domain-map.md`](../08-product-blueprint/05-domain-map.md)
-- **Statut :** Ouverte
+- **Statut :** Décision conditionnelle — validation factuelle restante (option intermédiaire resserrée approuvée le 2026-07-17 par DEC-001 ; cible de 2 à 3 compétitions maximum, liste exacte restant à confirmer après vérification des données).

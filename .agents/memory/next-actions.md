@@ -8,9 +8,13 @@
 - [x] Valider la portée du MVP
 - [x] Définir les critères d'acceptation
 - [ ] Produire le rapport de validation de la Phase 1
-- [ ] Arbitrer OQ-003 (Fournisseurs de données) avant le passage à la Phase 2
-- [ ] Arbitrer OQ-006 (Compétitions MVP) avant le passage à la Phase 2
+- [x] Arbitrer OQ-003 (Fournisseurs de données) avant le passage à la Phase 2 (arbitrage conditionnel acté DEC-001)
+- [x] Arbitrer OQ-006 (Compétitions MVP) avant le passage à la Phase 2 (arbitrage conditionnel acté DEC-001)
 - [ ] Décider des recommandations de priorité
-- [ ] Mettre à jour le Decision Log
+- [x] Mettre à jour le Decision Log (DEC-001 enregistré)
 - [ ] Obtenir les approbations humaines
-- [ ] Actualiser le rapport de validation final après arbitrage
+- [ ] Confirmer factuellement la source de données sportives
+- [ ] Confirmer la liste exacte des 2 à 3 compétitions MVP
+- [ ] Vérifier les droits d'usage et le coût des données
+- [ ] Actualiser définitivement le rapport après ces confirmations
+- [ ] Obtenir l'approbation finale de la Phase 1
