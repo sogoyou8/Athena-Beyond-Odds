@@ -299,12 +299,26 @@ Aucun fichier officiel de la Phase 1 n'a été modifié (data-source-feasibility
 
 ---
 
+## État d'exécution
+
+*Section ajoutée le 2026-07-18, suite à la découverte des accès réels (Phase 1.20).*
+
+- **football-data.org** : accès disponible. Les trois compétitions cibles ont été identifiées (Ligue 1 ID 2015, Premier League ID 2021, Champions League ID 2001).
+- **Sportmonks** : accès aux compétitions cibles bloqué par le plan d'essai. L'authentification fonctionne mais le plan ne couvre pas la Ligue 1, la Premier League ni l'UEFA Champions League.
+- **Test des 18 rencontres suspendu** : le test ne peut pas être exécuté tant que Sportmonks ne donne pas accès aux compétitions cibles.
+- **Aucune comparaison complète produite** : les résultats du protocole restent non testés ou partiellement bloqués.
+- Ce blocage ne constitue pas une panne technique de Sportmonks. Il s'agit d'une limitation de périmètre du plan d'essai actuellement disponible.
+- **La reprise de l'exécution exige** soit un accès Sportmonks adapté aux compétitions cibles, soit une nouvelle décision de fournisseur alternatif à comparer.
+
+---
+
 ## 11. Historique des versions
 
 | Version | Date | Auteur | Description |
 |:---|:---|:---|:---|
 | 1.0 | 2026-07-17 | Antigravity | Version initiale — protocole comparatif, échantillon proposé, matrice de données, critères de réussite, tableau de résultats, brouillons de courriel, ordre d'exécution. |
 | 1.1 | 2026-07-17 | Antigravity | Correction de cohérence — remplacement des deux journées complètes par un sous-échantillon de 6 rencontres × 3 compétitions (18 total), justification corrigée, appels répétés limités à 5 rencontres, saison de référence rendue conditionnelle, seuils recadrés. |
+| 1.2 | 2026-07-18 | Antigravity | Ajout de la section « État d'exécution » — constat factuel post-découverte des accès. |
 
 ---
 

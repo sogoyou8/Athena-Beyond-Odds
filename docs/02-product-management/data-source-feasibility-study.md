@@ -1,4 +1,4 @@
-﻿# Étude de faisabilité — Sources de données sportives MVP
+# Étude de faisabilité — Sources de données sportives MVP
 
 > **Statut :** Étude — décision finale requise
 > **Version :** 1.1
@@ -362,12 +362,28 @@ Aucun fichier officiel de la Phase 1 n'a été modifié (PRD, MVP Scope, Accepta
 
 ---
 
+## Résultat de la vérification d'accès
+
+*Section ajoutée le 2026-07-18, suite à la découverte des accès réels (Phase 1.20).*
+
+- **football-data.org** donne accès aux trois compétitions cibles (Ligue 1, Premier League, UEFA Champions League) via son plan gratuit. Les identifiants ont été confirmés localement sans collecte de rencontres.
+- **Sportmonks** authentifie correctement la clé d'API (HTTP 200), mais le plan d'essai actuel ne donne pas accès aux trois compétitions cibles. Seules des compétitions hors périmètre MVP (Superliga, Premiership écossaise, cricket) sont disponibles.
+- **La comparaison directe entre les deux fournisseurs est bloquée** : il n'est pas possible de démontrer une saison commune ni d'exécuter le test des 18 rencontres avec les accès actuels.
+- **Sportmonks n'est pas éliminé techniquement** — l'authentification fonctionne. Il n'est simplement pas évaluable sur les compétitions cibles avec le plan d'essai disponible.
+- **Aucun plan payant n'a été souscrit.**
+- **Aucune recommandation commerciale définitive n'est formulée** dans ce document.
+
+Voir le rapport complet : [provider-access-discovery-report.md](provider-access-discovery-report.md)
+
+---
+
 ## 13. Historique des versions
 
 | Version | Date | Auteur | Description |
 |:---|:---|:---|:---|
 | 1.0 | 2026-07-17 | Antigravity | Version initiale — analyse comparative de 3 fournisseurs, 3 scénarios, grille pondérée, recommandation conditionnelle. |
 | 1.1 | 2026-07-17 | Antigravity | Consolidation factuelle — retrait des affirmations non sourcées, clarification des rôles, correction du xG Sportmonks, retrait TheStatsAPI (sources insuffisantes), reclassement des fournisseurs enterprise, correction scénarios et grille, recommandation à deux tests parallèles. |
+| 1.2 | 2026-07-18 | Antigravity | Ajout de la section « Résultat de la vérification d'accès » — constat factuel post-découverte. |
 
 ---
 
