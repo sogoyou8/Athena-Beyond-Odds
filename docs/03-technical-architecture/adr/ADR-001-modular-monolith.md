@@ -1,6 +1,6 @@
 # ADR-001 — Choix d'un monolithe modulaire pour le prototype
 
-* **Statut :** Proposé
+* **Statut :** Accepté
 * **Date :** 2026-07-18
 * **Auteur :** Antigravity
 * **Branche :** `architecture/phase-2-technical-design`

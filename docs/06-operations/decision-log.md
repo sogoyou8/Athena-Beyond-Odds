@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 1.2
+> **Version :** 1.3
 
 # Decision Log
 
@@ -55,4 +55,27 @@
     - La Pull Request de Phase 1 doit être maintenue en mode brouillon (draft) tant que l'évaluation comparative finale n'est pas arbitrée.
 - **Conséquences :**
   - Démarrage effectif de la Phase 2 sous réserve du respect strict de la couche d'abstraction de données et des garde-fous ci-dessus.
-  - Préparation des courriels d'évaluation et demandes commerciales auprès de Sportmonks.
+  - Préparation des courriels d’évaluation et demandes commerciales auprès de Sportmonks.
+
+## DEC-003 — Approbation de l’architecture technique de Phase 2
+
+- **Date :** 2026-07-18
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Décision validée
+- **Contexte :** À l’issue de la Phase 2.1 (définition de l’architecture), de la Phase 2.2 (ADR initiaux) et de la Phase 2.3 (dossier de validation), l’architecture du prototype Athena a été soumise à l’approbation formelle du Fondateur.
+- **Décision :**
+  - **Architecture globale approuvée** pour la conception détaillée.
+  - **ADR-001 (Monolithe modulaire) :** Accepté.
+  - **ADR-002 (Abstraction des fournisseurs) :** Accepté.
+  - **ADR-003 (Modèle de domaine normalisé) :** Accepté.
+  - Actions autorisées : définition de la structure initiale, préparation des contrats de domaine, conception de l’adaptateur football-data.org, rédaction de nouveaux ADR technologiques.
+  - **Écriture de code applicatif non encore autorisée.**
+  - Décisions technologiques clés différées (langage, framework, base de données, cache, hébergement, authentification, moteur de probabilités, XAI) : étude dans de nouveaux ADR autorisée.
+- **Contraintes maintenus :**
+  - Budget maximal : 0 €, aucune dépense immédiate.
+  - football-data.org reste provisoire ; Sportmonks reste non implémenté ; aucun fournisseur définitif sélectionné.
+  - Maximum trois compétitions, lecture seule, aucune redistribution ni conservation longue durée des données.
+  - Pull Request de Phase 1 maintenue en brouillon.
+- **Justification :**
+  - Choix d’architecture pragmatiques respectant le budget nul et le découpage modulaire, garantissant l’indépendance vis-à-vis du fournisseur de données.
+- **Corrections demandées :** Aucune.

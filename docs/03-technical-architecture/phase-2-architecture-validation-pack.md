@@ -1,10 +1,11 @@
 # Dossier de validation d'architecture — Phase 2
 
-**Statut :** Proposition soumise au Fondateur — En attente d'arbitrage
+**Statut :** Architecture approuvée pour la conception détaillée
 **Date :** 2026-07-18
 **Auteur :** Antigravity
 **Branche :** `architecture/phase-2-technical-design`
 **Contexte :** Phase 2 — Architecture technique
+
 
 ---
 
@@ -44,15 +45,15 @@ L'objectif est d'obtenir la validation du Fondateur ABYSS sur ces choix techniqu
 *Cochez les options autorisées :*
 
 ### 3.1 Vue d'ensemble et principes directeurs
-- [ ] **Approuvé** — La structure en couches et l'agnosticisme technique sont validés.
+- [x] **Approuvé** — La structure en couches et l'agnosticisme technique sont validés.
 - [ ] **Refusé** — Modifications requises : `À compléter`
 
 ### 3.2 Choix du Monolithe Modulaire (ADR-001)
-- [ ] **Approuvé** — Le développement initial sous forme de monolithe modulaire à budget 0 € est validé.
+- [x] **Approuvé** — Le développement initial sous forme de monolithe modulaire à budget 0 € est validé.
 - [ ] **Refusé** — Choix alternatif requis : `À compléter`
 
 ### 3.3 Abstraction et Modèle de Domaine (ADR-002 & ADR-003)
-- [ ] **Approuvé** — Le modèle Ports & Adaptateurs et le domaine normalisé sont validés. Le prototype provisoire s'appuiera sur football-data.org avec ces garde-fous.
+- [x] **Approuvé** — Le modèle Ports & Adaptateurs et le domaine normalisé sont validés. Le prototype provisoire s'appuiera sur football-data.org avec ces garde-fous.
 - [ ] **Refusé** — Modifications requises : `À compléter`
 
 ---
@@ -69,16 +70,20 @@ Le passage à la conception détaillée des adaptateurs et interfaces est propos
 ## 5. Décision finale du Fondateur
 
 **Décision :**
-`À compléter`
+`Architecture approuvée pour la conception détaillée`
 
 **Justification :**
-`À compléter`
+`Choix d’architecture pragmatiques respectant le budget nul et le découpage modulaire, garantissant l’indépendance vis-à-vis du fournisseur de données.`
+
+**Corrections demandées :**
+`Aucune`
 
 **Date :**
-`À compléter`
+`2026-07-18`
 
 **Signature :**
-`☐ En attente de signature humaine`
+`☑ Validé électroniquement par le Fondateur`
+
 
 ---
 

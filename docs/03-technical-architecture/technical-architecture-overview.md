@@ -1,6 +1,6 @@
 # Aperçu de l'Architecture Technique du Prototype Athena
 
-**Statut :** Brouillon d'architecture — En cours de définition
+**Statut :** Approuvé pour la conception détaillée (2026-07-18)
 **Phase :** Phase 2 — Architecture technique
 **Auteur :** Antigravity
 **Branche :** `architecture/phase-2-technical-design`
