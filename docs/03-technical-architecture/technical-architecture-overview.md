@@ -99,6 +99,25 @@ L'intégration d'un autre fournisseur de données (par exemple Sportmonks) en Ph
 2. Mapper les payloads Sportmonks vers les entités de Domaine.
 3. Modifier la configuration d'injection ou la factory d'adaptateur pour basculer sur le nouvel adaptateur.
 
+## Conception détaillée de la Phase 2.5
+
+La conception détaillée de la Phase 2.5 est préparée sous forme documentaire.
+
+Documents associés :
+
+- [Structure détaillée du projet](detailed-project-structure.md)
+- [Contrats du domaine Athena](domain-contracts.md)
+- [Contrat SportsDataProvider](sports-data-provider-contract.md)
+- [Conception détaillée de l’adaptateur football-data.org](football-data-org-adapter-design.md)
+- [Conception de la persistance SQLite](sqlite-persistence-design.md)
+- [Conception du cache mémoire local](in-memory-cache-design.md)
+
+Cette étape ne constitue pas une autorisation d’implémentation.
+
+Aucun dossier applicatif réel, aucun fichier source et aucun fichier de configuration applicative n’ont été créés.
+
+Toute création de code reste soumise à une validation explicite du Fondateur après revue de ces documents.
+
 ---
 
 ## 6. Statut final
