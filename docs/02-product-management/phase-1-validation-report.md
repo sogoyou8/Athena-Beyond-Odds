@@ -640,13 +640,16 @@ Les contradictions et ruptures de traçabilité identifiées lors de l'audit ini
 
 ### Conclusion
 
-**Phase 1 approuvable sous conditions — préparation de la Phase 2 autorisée, sous réserve de confirmation de la source de données et de la liste exacte des compétitions MVP.**
+**Phase 1 approuvable sous conditions — préparation de la Phase 2 autorisée, sous réserve de confirmation de la source de données et de la liste exacte des compétitions MVP par le Fondateur.**
 
 ### Réserves finales
 
-#### Bloquantes avant validation finale de la Phase 1 (en suspens)
-- **Validation factuelle OQ-003 et OQ-006 :** Confirmer la source de données et la liste des compétitions MVP.
-- **Droits d'usage et coûts :** Vérifier les aspects juridiques et financiers des données.
+#### Bloquantes avant validation finale de la Phase 1 (en suspens — en attente d'arbitrage)
+- **Validation factuelle OQ-003 et OQ-006 (Statut : Découverte effectuée) :**
+  - *football-data.org* a validé l'accès aux trois compétitions MVP.
+  - *Sportmonks* bloque l'accès aux trois compétitions MVP sur le plan d'essai actuel.
+  - Le test des 18 rencontres est en suspens. Un arbitrage est requis via le pack de décision [Consulter le dossier de décision fournisseur](provider-access-decision-pack.md).
+- **Droits d'usage et coûts :** En attente de l'option d'arbitrage retenue par le Fondateur (proposition commerciale Sportmonks ou prototype provisoire avec football-data.org).
 
 #### Non bloquantes (pouvant rester ouvertes jusqu'à la Phase 3)
 - **Questions ouvertes d'usage OQ-001, OQ-002, OQ-004, OQ-005 :** Quotas Free, tarifs, langues et MFA pour utilisateurs finaux.
@@ -657,7 +660,7 @@ Les contradictions et ruptures de traçabilité identifiées lors de l'audit ini
 
 | Rôle | Nom | Signature | Date |
 |:---|:---|:---|:---|
-| Fondateur ABYSS | — | ☐ En attente | — |
+| Fondateur ABYSS | — | ☐ En attente (Arbitrage requis sur pack de décision fournisseur) | — |
 
 ---
 
@@ -668,6 +671,7 @@ Les contradictions et ruptures de traçabilité identifiées lors de l'audit ini
 | 1.0 | 2026-07-17 | Fondateur ABYSS + Antigravity | Rédaction initiale — audit des 7 livrables, cohérence croisée, matrice globale de couverture, audit des références orphelines FR-023/FR-024, audit des divergences de personas, risques résiduels, conditions de passage à la Phase 2. |
 | 1.1 | 2026-07-17 | Fondateur ABYSS + Antigravity | Mise à jour après alignement complet des personas (E-001, E-003) et résolution des dépendances orphelines (E-002). |
 | 1.2 | 2026-07-17 | Fondateur ABYSS + Antigravity | Enregistrement de l'arbitrage conditionnel DEC-001 (OQ-003, OQ-006) et ajustement des conditions de passage en Phase 2. |
+| 1.3 | 2026-07-18 | Antigravity | Mise à jour des réserves de validation suite à la découverte des accès réels (comparaison complète des fournisseurs bloquée par le périmètre du plan d’essai Sportmonks, arbitrage proposé via provider-access-decision-pack.md). |
 
 ---
 
