@@ -1,6 +1,6 @@
 # ADR-006 — Stratégie de persistance des données
 
-* **Statut :** Proposé
+* **Statut :** Accepté (Décision Fondateur — 2026-07-18)
 * **Date :** 2026-07-18
 * **Auteur :** Antigravity
 * **Branche :** `architecture/phase-2-technical-design`
@@ -91,17 +91,15 @@ Contraintes déterminantes :
 
 ## Décision
 
-> **À arbitrer par le Fondateur.** Aucune technologie définitive n'est sélectionnée à ce stade.
+Le Fondateur a retenu **Option A — SQLite locale, minimale et désactivable**.
 
-La recommandation provisoire de l'équipe architecture est : **SQLite locale avec conservation minimale et désactivable, ou aucune persistance initiale si les cas d'usage peuvent fonctionner uniquement avec un cache court.**
+Contraintes validées :
+* Aucune donnée brute fournisseur ne doit être persistée — seules les entités Athena normalisées (ADR-003) peuvent l'être.
+* SQLite doit pouvoir être désactivée ou supprimée sans impacter le domaine (isolation via `MatchRepositoryPort`).
+* Conservation minimale uniquement — aucune conservation longue durée avant validation juridique.
+* Aucun service cloud n'est obligatoire pour démarrer le prototype.
 
-Justification :
-* L'ajout d'un service de base de données externe (PostgreSQL, MongoDB) introduit une dépendance tierce et une surface de configuration supplémentaire non justifiée au stade du prototype.
-* SQLite (Option A) ne nécessite aucune infrastructure externe, garantit le coût `0 €` de manière absolue, et peut être désactivée si l'ADR-007 (cache) s'avère suffisant pour les cas d'usage initiaux.
-* Option D (aucune persistance) reste valide tant que le volume de données et les quotas API le permettent — elle doit être réévaluée dès que des données doivent survivre aux redémarrements de l'instance.
-* PostgreSQL cloud (Option B) et MongoDB Atlas (Option C) restent des options pour une phase ultérieure, lorsque la durabilité entre redémarrements deviendra critique.
-
-Cette recommandation est soumise à validation du Fondateur. L'arbitrage doit être enregistré avant toute écriture de code de persistance.
+Option D (aucune persistance) reste utilisable si les cas d'usage initiaux fonctionnent uniquement avec le cache (ADR-007). PostgreSQL et MongoDB sont différés à une phase ultérieure.
 
 ## Conséquences
 

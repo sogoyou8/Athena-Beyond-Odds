@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 1.3
+> **Version :** 1.4
 
 # Decision Log
 
@@ -78,4 +78,32 @@
   - Pull Request de Phase 1 maintenue en brouillon.
 - **Justification :**
   - Choix d’architecture pragmatiques respectant le budget nul et le découpage modulaire, garantissant l’indépendance vis-à-vis du fournisseur de données.
+- **Corrections demandées :** Aucune.
+
+## DEC-004 — Approbation des choix technologiques de la Phase 2.4
+
+- **Date :** 2026-07-18
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Décision validée
+- **Contexte :** Suite à la validation de l'architecture globale (DEC-003) et à la présentation des ADR-004 à ADR-007, le Fondateur a arbitré les quatre choix technologiques initiaux du prototype Athena.
+- **Décisions :**
+  - **ADR-004 — Langage :** TypeScript / Node.js retenu.
+  - **ADR-005 — Framework :** Express avec structure modulaire explicite retenu (conditionnel à ADR-004 TypeScript).
+  - **ADR-006 — Persistance :** SQLite locale, minimale et désactivable retenu. Option D (aucune persistance) reste utilisable si le cache seul suffit.
+  - **ADR-007 — Cache :** Cache mémoire local dans le processus retenu. Migration vers Redis Upstash évaluable via un nouvel ADR si nécessaire.
+- **Autorisations accordées :**
+  - Préparation de la structure détaillée du projet.
+  - Préparation des contrats de domaine.
+  - Conception détaillée de l'adaptateur football-data.org.
+  - **Écriture de code applicatif non encore autorisée** — conditionnée à la finalisation des contrats de domaine.
+- **Contraintes maintenues :**
+  - Budget maximal : 0 €, aucune dépense immédiate.
+  - football-data.org reste provisoire ; Sportmonks reste non implémenté.
+  - Maximum trois compétitions, lecture seule, aucune redistribution ni conservation longue durée des données.
+  - SQLite doit pouvoir être désactivée ou supprimée ; aucune donnée brute fournisseur ne doit être persistée.
+  - Le cache doit avoir une durée de vie courte et être désactivable ; aucune donnée brute fournisseur ne doit être mémorisée.
+  - Aucun service cloud n'est obligatoire pour démarrer.
+  - Pull Request de Phase 1 maintenue en brouillon.
+- **Justification :**
+  - Choix simples, gratuits et réversibles, cohérents avec le monolithe modulaire (ADR-001), l'architecture par ports et adaptateurs (ADR-002) et la contrainte de budget nul.
 - **Corrections demandées :** Aucune.

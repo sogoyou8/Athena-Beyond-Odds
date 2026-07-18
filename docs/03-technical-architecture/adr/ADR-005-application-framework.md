@@ -1,6 +1,6 @@
 # ADR-005 — Choix du framework applicatif
 
-* **Statut :** Proposé
+* **Statut :** Accepté — conditionnel à ADR-004 TypeScript (Décision Fondateur — 2026-07-18)
 * **Date :** 2026-07-18
 * **Auteur :** Antigravity
 * **Branche :** `architecture/phase-2-technical-design`
@@ -189,11 +189,17 @@ Une comparaison complémentaire sera nécessaire avant toute sélection. Les can
 
 > **À arbitrer par le Fondateur. Aucune technologie définitive n'est sélectionnée à ce stade.**
 
-La sélection finale du framework dépend d'abord de l'acceptation de ADR-004 (choix du langage).
+ADR-004 ayant été validé avec **TypeScript / Node.js**, le Fondateur a retenu **Scénario A — Option A1 : Express avec une structure modulaire explicite**.
 
-Si TypeScript est retenu dans ADR-004, Express avec une structure modulaire explicite constitue la recommandation provisoire. Pour Python ou Go, une comparaison complémentaire devra être validée avant sélection.
+Justification validée :
+* Légèreté et compatibilité garantie avec les plans gratuits (émpreinte mémoire minimale, démarrage rapide).
+* Liberté d'organisation adaptée à l'architecture hexagonale sans conventions imposées.
+* Injection du port/adaptateur assurée manuellement via la fabrique d'adaptateurs (ADR-002).
+* Choix simple, gratuit et réversible, cohérent avec le monolithe modulaire et la contrainte de budget nul.
 
-Aucun framework Python ou Go ne sera choisi avant la décision sur le langage.
+L'isolation des couches sera vérifiée par `dependency-cruiser`. Aucun code applicatif ne sera écrit avant finalisation des contrats de domaine et de la structure détaillée.
+
+Les Scénarios B (Python) et C (Go) sont clos.
 
 ## Conséquences
 

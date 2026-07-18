@@ -1,6 +1,6 @@
 # ADR-004 — Choix du langage de développement principal
 
-* **Statut :** Proposé
+* **Statut :** Accepté (Décision Fondateur — 2026-07-18)
 * **Date :** 2026-07-18
 * **Auteur :** Antigravity
 * **Branche :** `architecture/phase-2-technical-design`
@@ -72,13 +72,16 @@ La décision porte sur le langage de la couche applicative principale (serveur, 
 
 > **À arbitrer par le Fondateur.** Aucune technologie définitive n'est sélectionnée à ce stade.
 
-L'option recommandée par l'équipe architecture est **Option A — TypeScript**, pour les raisons suivantes :
-* alignement avec la base de code JavaScript existante ;
-* typage statique adapté aux contrats de ports et adaptateurs ;
-* outillage disponible sans dépense (`eslint`, `vitest`, `dependency-cruiser`) ;
-* compatibilité avec les plans d'hébergement gratuits.
+Le Fondateur a retenu **Option A — TypeScript / Node.js**.
 
-Cette recommandation est soumise à validation du Fondateur. L'arbitrage doit être enregistré dans un nouvel ADR marqué `Accepté` avant toute écriture de code applicatif.
+Justification validée :
+* Alignement avec la base de code JavaScript existante dans le dépôt.
+* Typage statique adapté aux contrats des ports et adaptateurs (ADR-002).
+* Outillage disponible sans dépense (`eslint`, `vitest`, `dependency-cruiser`).
+* Compatibilité confirmée avec les plans d'hébergement gratuits.
+* Choix simple, gratuit et réversible, cohérent avec la contrainte de budget nul.
+
+L'écriture de code applicatif reste conditionnée à la finalisation des contrats de domaine et de la structure détaillée du projet.
 
 ## Conséquences
 

@@ -1,6 +1,6 @@
 # ADR-007 — Stratégie de cache
 
-* **Statut :** Proposé
+* **Statut :** Accepté (Décision Fondateur — 2026-07-18)
 * **Date :** 2026-07-18
 * **Auteur :** Antigravity
 * **Branche :** `architecture/phase-2-technical-design`
@@ -91,14 +91,13 @@ Contrainte budgétaire : `0 €` — les solutions nécessitant une instance Red
 
 > **À arbitrer par le Fondateur.** Aucune technologie définitive n'est sélectionnée à ce stade.
 
-L'option recommandée par l'équipe architecture est **Option A — Cache en mémoire** pour le prototype initial, avec migration vers **Option B — Redis Upstash** si la dormance des plans gratuits entraîne des rechargements trop fréquents depuis l'API fournisseur.
+Le Fondateur a retenu **Option A — Cache mémoire local dans le processus**.
 
-Justification de la recommandation :
-* Le cache en mémoire est suffisant pour le volume limité (3 compétitions, données quotidiennes).
-* Le budget `0 €` est respecté sans dépendance externe.
-* La stratégie est encapsulée dans la couche Infrastructure derrière le port `DataProviderPort` (ADR-002) : une migration vers Redis ne modifiera pas la couche Application ni le domaine.
-
-Cette recommandation est soumise à validation du Fondateur. L'arbitrage doit être enregistré avant toute écriture de code de cache.
+Contraintes validées :
+* Le cache doit avoir une durée de vie courte (TTL calibré selon la fréquence de mise à jour de football-data.org) et être désactivable.
+* Aucune donnée brute fournisseur ne doit être mémorisée — seules les entités Athena normalisées (ADR-003) peuvent l'être.
+* Aucun service cloud (Redis) n'est obligatoire pour démarrer.
+* Migration vers Option B — Redis Upstash évaluable si la dormance des plans gratuits pose problème, via un nouvel ADR.
 
 ## Conséquences
 
