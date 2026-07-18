@@ -7,6 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
 
 // --- Configuration des Chemins ---
 const CONFIG_PATH = path.join(__dirname, 'compare-config.json');
@@ -107,7 +108,8 @@ function showHelp() {
   --help                 : Affiche ce menu d'aide
   --check-env            : Valide la présence et la longueur des clés dans .env.local (sans réseau)
   --check-config         : Valide la configuration des limites et des identifiants
-  --test-auth            : Préparation uniquement — aucune requête réseau implémentée
+  --test-auth            : Exécute le test d'authentification réseau minimal (1 requête max par fournisseur)
+  --describe-auth-test   : Affiche la description textuelle et la spécification de sécurité du test d'authentification
   --check-output-paths   : Valide la protection des chemins d'écriture de fichiers`);
 }
 
@@ -222,10 +224,229 @@ function checkConfig() {
   return true;
 }
 
+// --- Table des Cibles Réseau Figée ---
+const AUTH_TARGETS = Object.freeze({
+  footballData: Object.freeze({
+    hostname: 'api.football-data.org',
+    path: '/v4/competitions'
+  }),
+  sportmonks: Object.freeze({
+    hostname: 'api.sportmonks.com',
+    path: '/v3/my/leagues'
+  })
+});
+
+// --- Classification des codes HTTP de retour ---
+function classifyHttpStatus(statusCode) {
+  switch (statusCode) {
+    case 200:
+      return 'Réponse OK - à valider';
+    case 401:
+      return 'Authentification refusée (clé invalide ou expirée)';
+    case 403:
+      return 'Accès insuffisant ou interdit pour cette ressource';
+    case 429:
+      return 'Quota ou limitation d\'appels atteint';
+    default:
+      return `Échec HTTP générique (Code : ${statusCode})`;
+  }
+}
+
+// --- Helper : Réaliser une requête HTTP GET sécurisée, limitée et orientée cible ---
+function makeRequest(targetKey, headers, keysToMask) {
+  return new Promise((resolve, reject) => {
+    const target = AUTH_TARGETS[targetKey];
+    if (!target) {
+      return reject(new Error('Cible réseau de destination inconnue.'));
+    }
+
+    const options = {
+      method: 'GET',
+      hostname: target.hostname,
+      path: target.path,
+      headers: headers,
+      timeout: 10000 // 10 secondes max
+    };
+
+    const req = https.request(options, (res) => {
+      const statusCode = res.statusCode;
+      let body = '';
+      let length = 0;
+
+      res.on('data', (chunk) => {
+        length += chunk.length;
+        if (length > 65536) { // Limite stricte de 64 Ko en mémoire
+          res.destroy();
+          reject(new Error('Taille de la réponse réseau maximale dépassée.'));
+          return;
+        }
+        body += chunk.toString('utf8');
+      });
+
+      res.on('end', () => {
+        resolve({ statusCode, body });
+      });
+    });
+
+    req.on('error', (err) => {
+      reject(new Error(cleanErrorMessage(err, keysToMask)));
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Délai d\'attente réseau de 10 secondes dépassé.'));
+    });
+
+    req.end();
+  });
+}
+
 // --- Action : Authentification ---
-function testAuth() {
+async function testAuth() {
   console.log('=== TEST D\'AUTHENTIFICATION ===');
-  console.error('Préparation uniquement — aucune requête réseau implémentée');
+  const { env, error } = loadEnvLocal();
+
+  if (error) {
+    console.error(`[ERREUR] ${error}`);
+    return false;
+  }
+
+  // 1. Validation de NODE_ENV avant tout appel réseau
+  const allowedNodeEnvs = new Set(['development', 'test', 'production']);
+  if (!allowedNodeEnvs.has(env.NODE_ENV)) {
+    console.error('NODE_ENV : Invalide');
+    return false;
+  }
+
+  const fdKey = env.FOOTBALL_DATA_API_KEY;
+  const smKey = env.SPORTMONKS_API_KEY;
+  const keysToMask = [fdKey, smKey];
+
+  if (!fdKey || !smKey) {
+    console.error('[ERREUR] Clés d\'API manquantes dans le fichier .env.local.');
+    return false;
+  }
+
+  let allSuccess = true;
+
+  // 1. football-data.org
+  console.log('football-data.org');
+  try {
+    const fdHeaders = {
+      'X-Auth-Token': fdKey,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Athena/1.0'
+    };
+    const fdResult = await makeRequest('footballData', fdHeaders, keysToMask);
+
+    console.log(`- Statut HTTP : ${fdResult.statusCode}`);
+    console.log(`- Classification : ${classifyHttpStatus(fdResult.statusCode)}`);
+
+    if (fdResult.statusCode === 200) {
+      try {
+        const data = JSON.parse(fdResult.body);
+        if (data && Array.isArray(data.competitions)) {
+          console.log('- Authentification réussie : Oui');
+          console.log(`- Compétitions accessibles : ${data.competitions.length}`);
+        } else {
+          console.log('- Authentification réussie : Non (Le format de réponse ne contient pas un tableau de compétitions valide)');
+          allSuccess = false;
+        }
+      } catch (e) {
+        console.log('- Authentification réussie : Non (Erreur de parsing JSON de la réponse)');
+        allSuccess = false;
+      }
+    } else {
+      console.log('- Authentification réussie : Non');
+      allSuccess = false;
+    }
+  } catch (err) {
+    console.log('- Authentification réussie : Non');
+    console.error(`- Erreur : ${cleanErrorMessage(err, keysToMask)}`);
+    allSuccess = false;
+  }
+
+  console.log('');
+
+  // 2. Sportmonks
+  console.log('Sportmonks');
+  try {
+    const smHeaders = {
+      'Authorization': smKey,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Athena/1.0'
+    };
+    const smResult = await makeRequest('sportmonks', smHeaders, keysToMask);
+
+    console.log(`- Statut HTTP : ${smResult.statusCode}`);
+    console.log(`- Classification : ${classifyHttpStatus(smResult.statusCode)}`);
+
+    if (smResult.statusCode === 200) {
+      try {
+        const data = JSON.parse(smResult.body);
+        if (data && Array.isArray(data.data)) {
+          console.log('- Authentification réussie : Oui');
+          console.log(`- Compétitions accessibles : ${data.data.length}`);
+        } else {
+          console.log('- Authentification réussie : Non (Le format de réponse ne contient pas un tableau data valide)');
+          allSuccess = false;
+        }
+      } catch (e) {
+        console.log('- Authentification réussie : Non (Erreur de parsing JSON de la réponse)');
+        allSuccess = false;
+      }
+    } else {
+      console.log('- Authentification réussie : Non');
+      allSuccess = false;
+    }
+  } catch (err) {
+    console.log('- Authentification réussie : Non');
+    console.error(`- Erreur : ${cleanErrorMessage(err, keysToMask)}`);
+    allSuccess = false;
+  }
+
+  console.log('------------------------------------------------------------');
+  return allSuccess;
+}
+
+// --- Action : Décrire le test d'authentification (sans réseau) ---
+function describeAuthTest() {
+  console.log('=== DESCRIPTION DU TEST D\'AUTHENTIFICATION RESEAU ===');
+  console.log('Ce test valide la validité et les droits d\'accès des clés API configurées.');
+  console.log('');
+  console.log('1. DESTINATIONS RESEAU FIGEES :');
+  console.log('   - football-data.org : https://api.football-data.org/v4/competitions');
+  console.log('   - Sportmonks        : https://api.sportmonks.com/v3/my/leagues');
+  console.log('   (Toute URL ou destination arbitraire est rejetée par sécurité)');
+  console.log('');
+  console.log('2. LIMITES ET CONTRAINTES RESEAU :');
+  console.log('   - Méthode HTTP      : GET uniquement');
+  console.log('   - Requêtes max      : 1 seule requête par fournisseur');
+  console.log('   - Séquentialité     : Requêtes exécutées l\'une après l\'autre');
+  console.log('   - Timeout strict    : Interruption automatique après 10 secondes maximum');
+  console.log('   - Redirections      : Aucune redirection n\'est suivie');
+  console.log('   - Limitation mémoire: Corps de réponse limité à 65 536 octets max en mémoire');
+  console.log('   - Aucun fichier brut n\'est écrit ou stocké lors de ce test');
+  console.log('');
+  console.log('3. CLASSIFICATION HTTP ET CRITERES DE REUSSITE :');
+  console.log('   - Statut 200        : Succès HTTP, la structure JSON de la réponse doit être validée');
+  console.log('   - Statut 401        : Échec - Authentification refusée (clé invalide ou expirée)');
+  console.log('   - Statut 403        : Échec - Accès insuffisant ou interdit');
+  console.log('   - Statut 429        : Échec - Quota ou limitation d\'appels atteint');
+  console.log('   - Autre statut      : Échec - Erreur HTTP générique');
+  console.log('   (Tout statut différent de 200 retourne immédiatement un code global 1)');
+  console.log('');
+  console.log('4. VALIDATION STRICTE DU CONTENU (HTTP 200) :');
+  console.log('   - football-data.org : Le JSON doit être valide et contenir un tableau "competitions".');
+  console.log('                         Le nombre est lu via "competitions.length" (sans utiliser count).');
+  console.log('   - Sportmonks        : Le JSON doit être valide et contenir un tableau "data".');
+  console.log('                         Le nombre est lu via "data.length".');
+  console.log('   (Si le JSON est corrompu ou si le tableau attendu est absent, l\'authentification est marquée Échouée)');
+  console.log('');
+  console.log('5. REGLES DE SECURITE LOCALES :');
+  console.log('   - Les clés privées d\'API ne sont jamais affichées, stockées ou écrites.');
+  console.log('   - Tout message d\'erreur est nettoyé de ses clés et tokens sensibles avant affichage.');
+  console.log('   - NODE_ENV est validé en amont et doit être "development", "test" ou "production".');
+  console.log('------------------------------------------------------------');
+  return true;
 }
 
 // --- Action : Vérification des Chemins de Sortie ---
@@ -267,7 +488,7 @@ function checkOutputPaths() {
 }
 
 // --- Point d'entrée ---
-function main() {
+async function main() {
   const args = process.argv.slice(2);
 
   if (args.length === 0) {
@@ -301,8 +522,11 @@ function main() {
       return;
 
     case '--test-auth':
-      testAuth();
-      process.exitCode = 1; // test-auth n'étant pas implémenté réseau, il retourne 1 par sécurité
+      process.exitCode = await testAuth() ? 0 : 1;
+      return;
+
+    case '--describe-auth-test':
+      process.exitCode = describeAuthTest() ? 0 : 1;
       return;
 
     case '--check-output-paths':
