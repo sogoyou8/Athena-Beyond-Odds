@@ -105,12 +105,13 @@ function loadConfig() {
 // --- Action : Afficher l'aide ---
 function showHelp() {
   console.log(`Harnais de test Athena — Commandes disponibles :
-  --help                 : Affiche ce menu d'aide
-  --check-env            : Valide la présence et la longueur des clés dans .env.local (sans réseau)
-  --check-config         : Valide la configuration des limites et des identifiants
-  --test-auth            : Exécute le test d'authentification réseau minimal (1 requête max par fournisseur)
-  --describe-auth-test   : Affiche la description textuelle et la spécification de sécurité du test d'authentification
-  --check-output-paths   : Valide la protection des chemins d'écriture de fichiers`);
+  --help                    : Affiche ce menu d'aide
+  --check-env               : Valide la présence et la longueur des clés dans .env.local (sans réseau)
+  --check-config            : Valide la configuration des limites et des identifiants
+  --test-auth               : Exécute le test d'authentification réseau minimal (1 requête max par fournisseur)
+  --describe-auth-test      : Affiche la description textuelle et la spécification de sécurité du test d'authentification
+  --discover-competitions   : Identifie les IDs et saisons des compétitions cibles (2 requêtes réseau max)
+  --check-output-paths      : Valide la protection des chemins d'écriture de fichiers`);
 }
 
 // --- Action : Vérification de l'environnement (sans réseau et sans valeur partielle) ---
@@ -449,6 +450,179 @@ function describeAuthTest() {
   return true;
 }
 
+// --- Action : Découverte des identifiants de compétitions (RESEAU — 2 requêtes max) ---
+async function discoverCompetitions() {
+  console.log('=== DECOUVERTE DES IDENTIFIANTS DE COMPETITIONS ===');
+  const { env, error } = loadEnvLocal();
+
+  if (error) {
+    console.error(`[ERREUR] ${error}`);
+    return false;
+  }
+
+  const allowedNodeEnvs = new Set(['development', 'test', 'production']);
+  if (!allowedNodeEnvs.has(env.NODE_ENV)) {
+    console.error('NODE_ENV : Invalide');
+    return false;
+  }
+
+  const fdKey = env.FOOTBALL_DATA_API_KEY;
+  const smKey = env.SPORTMONKS_API_KEY;
+  const keysToMask = [fdKey, smKey];
+
+  if (!fdKey || !smKey) {
+    console.error('[ERREUR] Clés d\'API manquantes dans le fichier .env.local.');
+    return false;
+  }
+
+  const TARGETS = [
+    { label: 'Ligue 1',          keywords: ['ligue 1', 'ligue1', 'french ligue 1'] },
+    { label: 'Premier League',   keywords: ['premier league', 'english premier league'] },
+    { label: 'Champions League', keywords: ['champions league', 'uefa champions league', 'ucl'] }
+  ];
+
+  function matchTarget(name) {
+    if (typeof name !== 'string') return null;
+    const lower = name.toLowerCase();
+    for (const t of TARGETS) {
+      if (t.keywords.some(k => lower.includes(k))) return t.label;
+    }
+    return null;
+  }
+
+  let overallSuccess = true;
+
+  // --- 1. football-data.org (requête 1/2) ---
+  console.log('\nfootball-data.org — GET /v4/competitions');
+  try {
+    const fdHeaders = {
+      'X-Auth-Token': fdKey,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Athena/1.0'
+    };
+    const fdResult = await makeRequest('footballData', fdHeaders, keysToMask);
+    console.log(`- Statut HTTP : ${fdResult.statusCode}`);
+    console.log(`- Classification : ${classifyHttpStatus(fdResult.statusCode)}`);
+
+    if (fdResult.statusCode === 200) {
+      let data;
+      try {
+        data = JSON.parse(fdResult.body);
+      } catch (e) {
+        console.error('- Format de réponse invalide (parsing JSON échoué)');
+        overallSuccess = false;
+        data = null;
+      }
+
+      if (data && Array.isArray(data.competitions)) {
+        const found = [];
+        for (const comp of data.competitions) {
+          const label = matchTarget(comp.name);
+          if (label) {
+            const seasonYear = comp.currentSeason
+              ? String(comp.currentSeason.startDate || '').slice(0, 4)
+              : null;
+            found.push({
+              label,
+              id: comp.id,
+              code: comp.code,
+              name: comp.name,
+              seasonYear
+            });
+          }
+        }
+
+        found.forEach(f => {
+          console.log(`\n  [${f.label}]`);
+          console.log(`    Nom    : ${f.name}`);
+          console.log(`    ID     : ${f.id}`);
+          console.log(`    Code   : ${f.code}`);
+          console.log(`    Saison : ${f.seasonYear || 'N/A'}`);
+        });
+
+        const missing = TARGETS.filter(t => !found.some(f => f.label === t.label));
+        if (missing.length > 0) {
+          console.log(`\n  [ATTENTION] Non trouvées : ${missing.map(m => m.label).join(', ')}`);
+          overallSuccess = false;
+        }
+      } else if (data) {
+        console.error('- Format de réponse invalide (competitions absent ou non-tableau)');
+        overallSuccess = false;
+      }
+    } else {
+      overallSuccess = false;
+    }
+  } catch (err) {
+    console.error(`- Erreur réseau : ${cleanErrorMessage(err, keysToMask)}`);
+    overallSuccess = false;
+  }
+
+  // --- 2. Sportmonks (requête 2/2) ---
+  console.log('\nSportmonks — GET /v3/my/leagues');
+  try {
+    const smHeaders = {
+      'Authorization': smKey,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Athena/1.0'
+    };
+    const smResult = await makeRequest('sportmonks', smHeaders, keysToMask);
+    console.log(`- Statut HTTP : ${smResult.statusCode}`);
+    console.log(`- Classification : ${classifyHttpStatus(smResult.statusCode)}`);
+
+    if (smResult.statusCode === 200) {
+      let data;
+      try {
+        data = JSON.parse(smResult.body);
+      } catch (e) {
+        console.error('- Format de réponse invalide (parsing JSON échoué)');
+        overallSuccess = false;
+        data = null;
+      }
+
+      if (data && Array.isArray(data.data)) {
+        const found = [];
+        for (const league of data.data) {
+          const label = matchTarget(league.name);
+          if (label) {
+            found.push({
+              label,
+              id: league.id,
+              name: league.name,
+              active: league.active,
+              currentSeasonId: league.current_season_id !== undefined
+                ? league.current_season_id
+                : (league.currentSeasonId !== undefined ? league.currentSeasonId : null)
+            });
+          }
+        }
+
+        found.forEach(f => {
+          console.log(`\n  [${f.label}]`);
+          console.log(`    Nom          : ${f.name}`);
+          console.log(`    ID           : ${f.id}`);
+          console.log(`    Actif        : ${f.active !== undefined ? f.active : 'N/A'}`);
+          console.log(`    ID saison    : ${f.currentSeasonId !== null ? f.currentSeasonId : 'N/A'}`);
+        });
+
+        const missing = TARGETS.filter(t => !found.some(f => f.label === t.label));
+        if (missing.length > 0) {
+          console.log(`\n  [ATTENTION] Non trouvées : ${missing.map(m => m.label).join(', ')}`);
+          overallSuccess = false;
+        }
+      } else if (data) {
+        console.error('- Format de réponse invalide (data absent ou non-tableau)');
+        overallSuccess = false;
+      }
+    } else {
+      overallSuccess = false;
+    }
+  } catch (err) {
+    console.error(`- Erreur réseau : ${cleanErrorMessage(err, keysToMask)}`);
+    overallSuccess = false;
+  }
+
+  console.log('\n------------------------------------------------------------');
+  return overallSuccess;
+}
+
 // --- Action : Vérification des Chemins de Sortie ---
 function checkOutputPaths() {
   console.log('=== VERIFICATION DES CHEMINS DE SORTIE (SANS RESEAU) ===');
@@ -527,6 +701,10 @@ async function main() {
 
     case '--describe-auth-test':
       process.exitCode = describeAuthTest() ? 0 : 1;
+      return;
+
+    case '--discover-competitions':
+      process.exitCode = await discoverCompetitions() ? 0 : 1;
       return;
 
     case '--check-output-paths':
