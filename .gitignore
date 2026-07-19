@@ -37,3 +37,12 @@ imports/notion-export/
 
 # Data Provider Comparison Raw Outputs
 tmp/provider-comparison/
+
+# Dependency management and compilation outputs
+node_modules/
+dist/
+dependency-graph.html
+
+# Base de données SQLite locale (non versionnée)
+athena.db
+*.db
