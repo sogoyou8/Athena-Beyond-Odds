@@ -8,11 +8,11 @@
  */
 
 import express, { Express } from 'express';
-import { createRouter } from './interfaces/http/routes.js';
+import { createHealthRouter } from './interfaces/http/health-route.js';
 
 export function createApp(): Express {
   const app = express();
   app.use(express.json());
-  app.use('/', createRouter());
+  app.use('/', createHealthRouter());
   return app;
 }
