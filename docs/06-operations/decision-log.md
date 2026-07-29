@@ -107,3 +107,41 @@
 - **Justification :**
   - Choix simples, gratuits et réversibles, cohérents avec le monolithe modulaire (ADR-001), l'architecture par ports et adaptateurs (ADR-002) et la contrainte de budget nul.
 - **Corrections demandées :** Aucune.
+
+## DEC-005 — Approbation du cadrage fonctionnel de la Phase 2.7
+
+- **Date :** 2026-07-29
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Contexte :**
+  - La Phase 2.6 a livré et fusionné le squelette technique approuvé.
+  - La Phase 2.7 prépare la première tranche fonctionnelle observable.
+  - Cette tranche doit rester locale, fictive, déterministe et en lecture seule.
+  - Aucun fournisseur réel, appel réseau ou stockage réel ne doit être activé.
+  - Huit décisions fondatrices ont été explicitement approuvées avant toute implémentation.
+- **Décision :**
+  1. La seule compétition disponible est `FL1`, avec des équipes, matchs, identifiants et métadonnées entièrement fictifs.
+  2. Le fournisseur factice retourne exactement trois matchs.
+  3. La réponse nominale utilise l’enveloppe `{ "competitionCode": "FL1", "matches": [] }`.
+  4. Toute autre compétition retourne HTTP `404` avec `{ "error": "COMPETITION_NOT_AVAILABLE" }`.
+  5. Le fournisseur factice est prévu sous `src/infrastructure/providers/in-memory/in-memory-sports-data-provider.ts`.
+  6. Le fournisseur est câblé directement et inconditionnellement dans la composition de l’application, sans variable d’environnement, factory, registre ou sélection dynamique.
+  7. Le cas d’usage porte le nom exact `ListScheduledMatchesUseCase` et est prévu sous `src/application/use-cases/list-scheduled-matches.ts`.
+  8. Les dates fixes sont `2099-08-14T18:00:00.000Z`, `2099-08-15T20:00:00.000Z` et `2099-08-16T19:30:00.000Z`.
+- **Conséquences :**
+  - Le cadrage fonctionnel de la Phase 2.7 est figé.
+  - Le budget reste limité à `0 €`.
+  - La tranche reste en lecture seule et limitée à `FL1`.
+  - Aucun appel réseau n’est autorisé.
+  - Aucune persistance réelle n’est autorisée.
+  - Aucune dépendance npm supplémentaire n’est autorisée.
+  - `InMemoryCache` reste inchangé et inactif pour cette tranche.
+  - `SqlitePersistence` reste inchangé, logique et inutilisé.
+  - football-data.org reste provisoire et non activé.
+  - Sportmonks reste non implémenté.
+  - Aucun fournisseur réel ou définitif n’est sélectionné.
+  - Cette décision documentaire n’autorise pas encore l’implémentation.
+  - Une autorisation séparée est requise avant toute création de branche d’implémentation ou écriture de code.
+  - Toute déviation par rapport aux huit décisions nécessite une nouvelle décision.
+- **Référence :** [Pack de validation Phase 2.7](../03-technical-architecture/phase-2-7-functional-slice-validation-pack.md)
+
