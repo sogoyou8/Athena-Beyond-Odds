@@ -145,3 +145,34 @@
   - Toute déviation par rapport aux huit décisions nécessite une nouvelle décision.
 - **Référence :** [Pack de validation Phase 2.7](../03-technical-architecture/phase-2-7-functional-slice-validation-pack.md)
 
+## DEC-006 — Approbation du cadrage de connexion au fournisseur réel
+
+- **Date :** 2026-07-30
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Contexte :**
+  - La Phase 2.7 a livré et fusionné la première tranche fonctionnelle avec un fournisseur fictif (`InMemorySportsDataProvider`).
+  - `FootballDataOrgAdapter` existe dans le squelette mais lève `NotImplementedError` sur toutes ses méthodes.
+  - La Phase 2.8 prépare la première connexion observable à un fournisseur de données sportives réel.
+  - Un cadrage initial proposant de remplacer `FL1` par `PL` a été rejeté par le Fondateur : la Ligue 1 figure dans la couverture officielle gratuite de football-data.org au 2026-07-30, avec le code API `FL1`.
+- **Décision :**
+  1. La clé API est lue exclusivement depuis la variable d'environnement `FOOTBALL_DATA_API_KEY` — aucune valeur de clé ne doit figurer dans Git, les documents, les tests ou les logs ; l'absence de clé avec le fournisseur réel sélectionné provoque un échec explicite au démarrage.
+  2. La compétition réelle retenue est `FL1` (Ligue 1) — continuité avec la Phase 2.7, présence dans la couverture gratuite officielle au 2026-07-30 ; si un test réel retourne HTTP `403` pour `FL1`, l'implémentation est arrêtée sans substitution automatique.
+  3. L'activation du fournisseur est contrôlée par `SPORTS_DATA_PROVIDER` (`in-memory` par défaut, `football-data-org` pour le réel) — aucun fallback automatique, aucun registre dynamique, sélection confinée à la composition de l'application ; cette décision remplace l'interdiction de sélection dynamique de `DEC-005 §6` pour la seule Phase 2.8.
+  4. Le client HTTP utilisé est `fetch` natif (`globalThis.fetch`) — aucune dépendance npm supplémentaire, transport injectable et typé, authentification via en-tête `X-Auth-Token`, délai maximal de 8 secondes via `AbortController`, aucun token dans les logs.
+  5. La fenêtre temporelle est de 7 jours calendaires UTC : `[dateFrom, dateFrom + 7 jours)` — `dateFrom` est la date UTC courante, l'horloge est injectable, aucun `Date.now()` non encapsulé dans la logique testée.
+  6. Les erreurs du fournisseur produisent HTTP `429` avec `{ "error": "PROVIDER_RATE_LIMIT" }` pour une limite de débit, et HTTP `503` avec `{ "error": "PROVIDER_UNAVAILABLE" }` pour toute indisponibilité (erreur réseau, timeout, HTTP `401`, `403`, `5xx`, JSON invalide) — aucun fallback vers `InMemorySportsDataProvider`, aucun token dans les réponses.
+- **Résolution des questions ouvertes :**
+  - Tests automatisés : aucun appel réseau réel dans `npm test`, transport `fetch` injecté et simulé.
+  - Codes de compétition : `FL1` uniquement, tout autre code déclenche `CompetitionNotAvailableError` avant tout appel réseau.
+  - Chargement de la clé : variable d'environnement uniquement, aucun fichier `.env`, aucune dépendance supplémentaire.
+- **Conséquences :**
+  - Le cadrage de la Phase 2.8 est figé.
+  - Budget maintenu à `0 €`.
+  - Développement local uniquement — aucun déploiement public, aucun utilisateur tiers, aucune redistribution.
+  - football-data.org reste provisoire et remplaçable.
+  - Sportmonks reste non implémenté.
+  - `InMemoryCache` et `SqlitePersistence` restent inchangés et inactifs.
+  - Cette décision documentaire n'autorise pas encore l'implémentation.
+  - Une autorisation séparée est requise avant toute création de branche d'implémentation ou écriture de code.
+- **Référence :** [Pack de validation Phase 2.8](../03-technical-architecture/phase-2-8-real-provider-validation-pack.md)
