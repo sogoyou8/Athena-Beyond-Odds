@@ -26,7 +26,13 @@ export function resolveSportsDataProvider(): SportsDataProvider {
   }
 
   if (providerType === 'football-data-org') {
-    return new FootballDataOrgAdapter();
+    const apiKey = process.env['FOOTBALL_DATA_API_KEY']?.trim();
+    if (!apiKey) {
+      throw new Error(
+        '[Athena] ERREUR DE CONFIGURATION : FOOTBALL_DATA_API_KEY est requise lorsque SPORTS_DATA_PROVIDER=football-data-org.'
+      );
+    }
+    return new FootballDataOrgAdapter({ apiKey });
   }
 
   throw new Error(

@@ -53,17 +53,22 @@ describe('Integration — Provider Error Handling (DEC-006)', () => {
     expect(response.body).toEqual({ error: 'PROVIDER_UNAVAILABLE' });
   });
 
-  it('retourne HTTP 503 avec { "error": "PROVIDER_UNAVAILABLE" } si la clé API est manquante', async () => {
-    const provider = new FootballDataOrgAdapter({
-      apiKey: '',
-      clockFn: mockClock,
-    });
+  it('transmet les erreurs inconnues au gestionnaire d\'erreur Express', async () => {
+    const customError = new Error('Custom unknown internal error');
+    const mockFetch = vi.fn().mockRejectedValue(customError);
 
-    const app = createApp(provider);
+    // FootballDataOrgAdapter convertit les erreurs d'appel fetch en ProviderUnavailableError (503).
+    // Pour simuler une erreur non capturée et transmise à next(error), nous créons un mock provider personnalisé.
+    const customProvider = {
+      getCompetitions: vi.fn(),
+      getMatches: vi.fn().mockRejectedValue(customError),
+      getMatchDetails: vi.fn(),
+    };
+
+    const app = createApp(customProvider);
 
     const response = await request(app).get('/competitions/FL1/matches');
 
-    expect(response.status).toBe(503);
-    expect(response.body).toEqual({ error: 'PROVIDER_UNAVAILABLE' });
+    expect(response.status).toBe(500);
   });
 });

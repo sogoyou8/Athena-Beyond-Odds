@@ -7,12 +7,12 @@
  * Principes et garde-fous (DEC-006) :
  * 1. Utilise globalThis.fetch natif sans dépendance npm. Transport HTTP injectable.
  * 2. Authentification via en-tête X-Auth-Token. Aucun token dans les logs ou les URL.
- * 3. Clé API lue uniquement depuis la variable d'environnement FOOTBALL_DATA_API_KEY.
+ * 3. Clé API transmise via le constructeur.
  * 4. Fenêtre temporelle [dateFrom, dateFrom + 7 jours) UTC (dateTo exclusive). Horloge injectable.
  * 5. Filtre final pour conserver uniquement les matchs au statut SCHEDULED.
  * 6. Délai maximal de 8 secondes par requête via AbortController.
  * 7. HTTP 429 -> ProviderRateLimitError (puis HTTP 429).
- * 8. Erreurs réseau, timeout, HTTP 401, 403, 5xx, JSON invalide -> ProviderUnavailableError (puis HTTP 503).
+ * 8. Erreurs réseau, timeout, HTTP 401, 403, 5xx, JSON invalide, mapping incompatible -> ProviderUnavailableError (puis HTTP 503).
  *
  * Références : phase-2-8-real-provider-validation-pack.md (DEC-006)
  */
@@ -20,10 +20,8 @@
 import { SportsDataProvider } from '../../../application/ports/sports-data-provider.js';
 import {
   NotImplementedError,
-  ProviderAuthError,
   ProviderRateLimitError,
   ProviderUnavailableError,
-  ProviderDataMappingError,
 } from '../../../application/errors/index.js';
 import { Competition } from '../../../domain/entities/competition.js';
 import { Match } from '../../../domain/entities/match.js';
@@ -50,20 +48,20 @@ const DEFAULT_BASE_URL = 'https://api.football-data.org/v4';
 const DEFAULT_TIMEOUT_MS = 8000;
 
 interface FootballDataTeam {
-  id: number;
-  name: string;
+  id?: number;
+  name?: string;
   shortName?: string | null;
   tla?: string | null;
   crest?: string | null;
 }
 
 interface FootballDataMatch {
-  id: number;
-  utcDate: string;
-  status: string;
+  id?: number;
+  utcDate?: string;
+  status?: string;
   matchday?: number | null;
-  homeTeam: FootballDataTeam;
-  awayTeam: FootballDataTeam;
+  homeTeam?: FootballDataTeam;
+  awayTeam?: FootballDataTeam;
   score?: {
     fullTime?: {
       home?: number | null;
@@ -88,7 +86,7 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
   private readonly timeoutMs: number;
 
   constructor(options: FootballDataOrgAdapterOptions = {}) {
-    this.apiKey = options.apiKey ?? process.env['FOOTBALL_DATA_API_KEY'] ?? '';
+    this.apiKey = options.apiKey ?? process.env['FOOTBALL_DATA_API_KEY']?.trim() ?? '';
     this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
     this.fetchFn = options.fetchFn ?? globalThis.fetch;
     this.clockFn = options.clockFn ?? (() => new Date());
@@ -110,12 +108,6 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
     _fromDate?: Date,
     _toDate?: Date
   ): Promise<Match[]> {
-    if (!this.apiKey || this.apiKey.trim() === '') {
-      throw new ProviderAuthError(
-        'FOOTBALL_DATA_API_KEY est manquante ou vide pour le fournisseur football-data-org.'
-      );
-    }
-
     const now = this.clockFn();
     const dateFromStr = this.formatUtcDate(now);
 
@@ -182,13 +174,19 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
       );
     }
 
-    if (!payload || !Array.isArray(payload.matches)) {
-      throw new ProviderDataMappingError(
-        'Le payload retourné par football-data.org ne contient pas de tableau matches valide'
+    if (!payload || typeof payload !== 'object' || !Array.isArray(payload.matches)) {
+      throw new ProviderUnavailableError(
+        'Le payload retourné par football-data.org ne contient pas un tableau matches valide.'
       );
     }
 
-    return this.mapMatchesPayload(payload.matches);
+    try {
+      return this.mapMatchesPayload(payload.matches);
+    } catch (err: unknown) {
+      throw new ProviderUnavailableError(
+        `Erreur lors du mapping des données football-data.org: ${(err as Error)?.message ?? 'inconnu'}`
+      );
+    }
   }
 
   getMatchDetails(_externalMatchId: string): Promise<Match> {
@@ -206,18 +204,31 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
     const results: Match[] = [];
 
     for (const raw of rawMatches) {
+      if (!raw || typeof raw !== 'object') {
+        throw new ProviderUnavailableError('Élément de match invalide dans le payload');
+      }
+
       const mappedStatus = this.mapStatus(raw.status);
       if (mappedStatus !== 'SCHEDULED') {
         continue;
       }
 
-      if (!raw.id || !raw.utcDate || !raw.homeTeam || !raw.awayTeam) {
-        continue;
+      if (
+        !raw.id ||
+        !raw.utcDate ||
+        !raw.homeTeam ||
+        !raw.homeTeam.id ||
+        !raw.homeTeam.name ||
+        !raw.awayTeam ||
+        !raw.awayTeam.id ||
+        !raw.awayTeam.name
+      ) {
+        throw new ProviderUnavailableError('Structure de match incomplète dans le payload');
       }
 
       const matchDate = new Date(raw.utcDate);
       if (isNaN(matchDate.getTime())) {
-        continue;
+        throw new ProviderUnavailableError('Date de match invalide dans le payload');
       }
 
       const homeTeam: Team = {
@@ -278,7 +289,11 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
     return results;
   }
 
-  private mapStatus(rawStatus: string): MatchStatus {
+  private mapStatus(rawStatus?: string): MatchStatus {
+    if (!rawStatus) {
+      throw new ProviderUnavailableError('Statut de match absent');
+    }
+
     switch (rawStatus) {
       case 'SCHEDULED':
       case 'TIMED':
@@ -293,7 +308,7 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
       case 'CANCELLED':
         return 'CANCELLED';
       default:
-        return 'SCHEDULED';
+        throw new ProviderUnavailableError(`Statut amont inconnu: ${rawStatus}`);
     }
   }
 }

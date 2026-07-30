@@ -9,20 +9,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { FootballDataOrgAdapter } from '../../src/infrastructure/providers/football-data-org/football-data-org-adapter.js';
 import {
-  ProviderAuthError,
   ProviderRateLimitError,
   ProviderUnavailableError,
-  ProviderDataMappingError,
 } from '../../src/application/errors/index.js';
 
 describe('FootballDataOrgAdapter (Unit Tests)', () => {
   const fixedNow = new Date('2026-07-30T12:00:00.000Z');
   const mockClock = () => fixedNow;
-
-  it('lève ProviderAuthError si la clé API est absente ou vide', async () => {
-    const adapter = new FootballDataOrgAdapter({ apiKey: '', clockFn: mockClock });
-    await expect(adapter.getMatches('FL1')).rejects.toThrow(ProviderAuthError);
-  });
 
   it('effectue un appel HTTP valide vers l\'URL et avec l\'en-tête X-Auth-Token corrects', async () => {
     const mockFetch = vi.fn().mockResolvedValue(
@@ -150,7 +143,7 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
     await expect(adapter.getMatches('FL1')).rejects.toThrow(ProviderUnavailableError);
   });
 
-  it('lève ProviderDataMappingError si payload.matches n\'est pas un tableau', async () => {
+  it('lève ProviderUnavailableError si payload.matches est absent ou null', async () => {
     const mockFetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ notMatches: [] }), { status: 200 })
     );
@@ -161,7 +154,34 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
       clockFn: mockClock,
     });
 
-    await expect(adapter.getMatches('FL1')).rejects.toThrow(ProviderDataMappingError);
+    await expect(adapter.getMatches('FL1')).rejects.toThrow(ProviderUnavailableError);
+  });
+
+  it('lève ProviderUnavailableError si un match est incomplet ou son statut inconnu', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          matches: [
+            {
+              id: 1,
+              utcDate: '2026-07-31T20:00:00Z',
+              status: 'UNKNOWN_STATUS_XYZ',
+              homeTeam: { id: 1, name: 'Team A' },
+              awayTeam: { id: 2, name: 'Team B' },
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    );
+
+    const adapter = new FootballDataOrgAdapter({
+      apiKey: 'valid-key',
+      fetchFn: mockFetch,
+      clockFn: mockClock,
+    });
+
+    await expect(adapter.getMatches('FL1')).rejects.toThrow(ProviderUnavailableError);
   });
 
   it('filtre et conserve uniquement les matchs au statut SCHEDULED', async () => {

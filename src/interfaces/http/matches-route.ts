@@ -15,7 +15,6 @@ import {
   CompetitionNotAvailableError,
 } from '../../application/use-cases/list-scheduled-matches.js';
 import {
-  ProviderAuthError,
   ProviderRateLimitError,
   ProviderUnavailableError,
 } from '../../application/errors/index.js';
@@ -44,7 +43,7 @@ export function createMatchesRouter(provider: SportsDataProvider): Router {
           return;
         }
 
-        if (error instanceof ProviderUnavailableError || error instanceof ProviderAuthError) {
+        if (error instanceof ProviderUnavailableError) {
           res.status(503).json({ error: 'PROVIDER_UNAVAILABLE' });
           return;
         }
