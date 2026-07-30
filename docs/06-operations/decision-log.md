@@ -176,3 +176,34 @@
   - Cette décision documentaire n'autorise pas encore l'implémentation.
   - Une autorisation séparée est requise avant toute création de branche d'implémentation ou écriture de code.
 - **Référence :** [Pack de validation Phase 2.8](../03-technical-architecture/phase-2-8-real-provider-validation-pack.md)
+
+---
+
+## DEC-007 — Validation manuelle contrôlée du fournisseur réel
+
+- **Date :** 2026-07-30
+- **Statut :** Approuvée partiellement — Niveau 1 validé
+- **Responsable :** Fondateur ABYSS
+- **Référence :** Commit `86117f5c40db30d8c53b9edf528d777093fb7bae`
+- **Branche :** `architecture/phase-2-technical-design`
+
+### Contexte
+
+Suite à l'implémentation de la Phase 2.8 (`DEC-006`), la connexion réelle au fournisseur `football-data.org` a été câblée mais n'avait jamais été exécutée avec une clé authentifiée. La Phase 2.9 avait pour but d'effectuer une validation manuelle contrôlée en local sans modifier le code source.
+
+### Décisions arrêtées
+
+1. **DEC-007.1 (Périmètre) :** Option A uniquement — validation manuelle contrôlée du fournisseur réel sans modification du code ni ajout de dépendances.
+2. **DEC-007.2 (Vérification FL1) :** La couverture publique de `FL1` doit être confirmée sur `football-data.org/coverage` (Free Tier) avant chaque test authentifié réel. Vérification confirmée le `2026-07-30`.
+3. **DEC-007.3 (Extension des compétitions) :** Non applicable et non autorisée en Phase 2.9. Seul `FL1` reste autorisé.
+4. **DEC-007.4 (Cache et Rate Limit) :** Non applicable en Phase 2.9 (`InMemoryCache` inactif, pas de retry ni de backoff).
+5. **DEC-007.5 (Observabilité) :** Non applicable en Phase 2.9 (aucun logger npm ni changement de journalisation).
+
+### Résultats et Statut
+
+- **Niveau 1 (Connexion & Contrat HTTP) :** Validé avec succès le `2026-07-30`. Exactement 1 appel authentifié effectué vers `GET /competitions/FL1/matches`. Statut HTTP 200 reçu avec une enveloppe JSON normalisée et valide (`competitionCode: "FL1"`). Sécurité des logs confirmée (0 fuite).
+- **Niveau 2 (Validation du mapping non vide) :** À rejouer à partir du **15 août 2026** (reprise du championnat de Ligue 1), le tableau des matchs étant vide (`matchCount: 0`) lors de la trêve estivale du 30 juillet 2026.
+
+### Verdict canonique
+
+`PHASE 2.9 VALIDATION PARTIELLE — ACCÈS RÉEL FL1 CONFIRME, TEST NON VIDE À REJOUER À PARTIR DU 15 AOÛT 2026`
