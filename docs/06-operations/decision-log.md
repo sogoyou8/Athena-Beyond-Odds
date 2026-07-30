@@ -207,3 +207,72 @@ Suite à l'implémentation de la Phase 2.8 (`DEC-006`), la connexion réelle au 
 ### Verdict canonique
 
 `PHASE 2.9 VALIDATION PARTIELLE — ACCÈS RÉEL FL1 CONFIRME, TEST NON VIDE À REJOUER À PARTIR DU 15 AOÛT 2026`
+
+---
+
+## DEC-008 — Activation contrôlée du cache mémoire
+
+- **Date :** 2026-07-30
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Référence :** Commit `76e1fd611145b6812bc6e747820397cda6e85553`
+- **Branche :** `architecture/phase-2-technical-design`
+- **Document de référence :** [phase-2-10-cache-activation-pack.md](../03-technical-architecture/phase-2-10-cache-activation-pack.md)
+
+### Contexte
+
+Suite à la validation de la Phase 2.9 (DEC-007), le fournisseur réel `football-data-org` est actif mais chaque appel à `GET /competitions/FL1/matches` déclenche un appel HTTP authentifié sans protection. La Phase 2.10 active `InMemoryCache` — décorateur déjà présent mais inactif — pour réduire les appels identiques, limiter le risque de dépassement de la limite de débit du plan gratuit et réduire la latence.
+
+### DEC-008.1 — Activation du Cache
+
+**Décision :** Cache actif uniquement avec `football-data-org`.
+
+| `SPORTS_DATA_PROVIDER` | Résolution |
+|---|---|
+| Absent | `InMemorySportsDataProvider` sans cache |
+| `in-memory` | `InMemorySportsDataProvider` sans cache |
+| `football-data-org` | `InMemoryCache` enveloppant `FootballDataOrgAdapter` |
+
+Aucune nouvelle variable d'environnement. Aucun `CACHE_ENABLED`. Port `SportsDataProvider` inchangé.
+
+### DEC-008.2 — TTL
+
+**Décision :** TTL fixe de **10 minutes** (`600 000 ms`). Configurable par constructeur dans les tests. Contrôlé par horloge injectable. Aucun délai réel dans les tests.
+
+### DEC-008.3 — Clé du Cache et Fenêtre Temporelle
+
+**Décision :** `{competitionCode}:{dateFrom}:{dateTo}` (exemple : `FL1:2026-07-30:2026-08-06`)
+
+- **Deux dates fournies :** utiliser et transmettre exactement ces dates.
+- **Aucune date :** cache calcule `dateFrom = maintenant UTC`, `dateTo = dateFrom + 7j UTC`, puis transmet ces dates explicitement au fournisseur décoré. Une seule fenêtre calculée par requête.
+- **Une seule borne :** délégation sans mise en cache (bypass).
+- La clé ne contient aucune donnée sensible (`FOOTBALL_DATA_API_KEY` et `X-Auth-Token` interdits).
+
+### DEC-008.4 — Comportement sur les Erreurs
+
+- Réponse réussie mise en cache, y compris `[]`.
+- Non mis en cache : `ProviderRateLimitError`, `ProviderUnavailableError`, `CompetitionNotAvailableError`, `NotImplementedError`, toute erreur inconnue, toute promesse rejetée.
+- Erreurs propagées sans modification.
+- **Stale-on-error : INTERDIT.**
+- **Retry : INTERDIT.**
+- Valeur expirée non servie après expiration.
+
+### DEC-008.5 — Concurrence
+
+**Décision :** Option B — in-flight deduplication via `Map<string, Promise<Match[]>>`.
+
+- Premier appel sur clé froide : appel fournisseur, promesse stockée temporairement.
+- Appel simultané sur même clé : réutilisation de la promesse en cours.
+- Promesse terminée (succès ou échec) retirée de la Map dans un bloc `finally`.
+
+### DEC-008.6 — Tests
+
+Suite de 24 cas minimum sans appel réseau réel ni `setTimeout` réel, avec horloge injectable (voir pack de validation pour détail complet).
+
+### Condition d'Arrêt Architecturale
+
+Avant l'implémentation, vérifier que `FootballDataOrgAdapter.getMatches()` respecte les paramètres `fromDate`/`toDate` explicites. Observation actuelle : l'adaptateur ignore ces paramètres (préfixés `_`) et recalcule en interne. Si la correction de ce contrat n'est pas autorisée, arrêter avec :
+
+```text
+PHASE 2.10 BLOQUÉE — CONTRAT DES FENÊTRES DE DATES À ARBITRER
+```
