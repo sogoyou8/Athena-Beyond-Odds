@@ -2,10 +2,10 @@
  * Route HTTP — GET /competitions/:competitionCode/matches
  * Couche Interfaces — adaptateur primaire HTTP.
  *
- * Phase 2.7 — Première tranche fonctionnelle.
- * Seul endpoint métier autorisé dans cette tranche.
+ * Phase 2.8 — Connexion au fournisseur réel.
+ * Mappe les erreurs du fournisseur vers les codes HTTP appropriés (DEC-006).
  *
- * Référence : phase-2-7-functional-slice-validation-pack.md (DEC-005)
+ * Référence : phase-2-8-real-provider-validation-pack.md (DEC-006)
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
@@ -14,6 +14,10 @@ import {
   ListScheduledMatchesUseCase,
   CompetitionNotAvailableError,
 } from '../../application/use-cases/list-scheduled-matches.js';
+import {
+  ProviderRateLimitError,
+  ProviderUnavailableError,
+} from '../../application/errors/index.js';
 
 export function createMatchesRouter(provider: SportsDataProvider): Router {
   const router = Router();
@@ -33,6 +37,17 @@ export function createMatchesRouter(provider: SportsDataProvider): Router {
           res.status(404).json({ error: 'COMPETITION_NOT_AVAILABLE' });
           return;
         }
+
+        if (error instanceof ProviderRateLimitError) {
+          res.status(429).json({ error: 'PROVIDER_RATE_LIMIT' });
+          return;
+        }
+
+        if (error instanceof ProviderUnavailableError) {
+          res.status(503).json({ error: 'PROVIDER_UNAVAILABLE' });
+          return;
+        }
+
         next(error);
       }
     }

@@ -3,10 +3,9 @@ import { FootballDataOrgAdapter } from '../../src/infrastructure/providers/footb
 import { NotImplementedError } from '../../src/application/errors/index.js';
 
 describe('SportsDataProvider Contract boundary', () => {
-  it('FootballDataOrgAdapter should raise NotImplementedError', async () => {
+  it('FootballDataOrgAdapter un-implemented methods should raise NotImplementedError', async () => {
     const adapter = new FootballDataOrgAdapter();
     expect(() => adapter.getCompetitions()).toThrow(NotImplementedError);
-    await expect(async () => adapter.getMatches('FL1')).rejects.toThrow(NotImplementedError);
     await expect(async () => adapter.getMatchDetails('123')).rejects.toThrow(NotImplementedError);
   });
 });
