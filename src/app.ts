@@ -4,11 +4,10 @@
  * Configure le serveur HTTP et monte les routes.
  * Ce module est importable (et testable) sans démarrer le serveur.
  *
- * PHASE 2.8 — Connexion au fournisseur réel : GET /competitions/:code/matches
- * Sélection du fournisseur via SPORTS_DATA_PROVIDER = in-memory | football-data-org
- * (in-memory par défaut).
+ * PHASE 2.10 — Activation du cache mémoire pour football-data-org (DEC-008.1).
+ * Composition : InMemoryCache(FootballDataOrgAdapter) avec TTL de 600 000 ms.
  *
- * Référence : DEC-006 / phase-2-8-real-provider-validation-pack.md
+ * Référence : DEC-008 / phase-2-10-cache-activation-pack.md
  */
 
 import express, { Express } from 'express';
@@ -17,6 +16,7 @@ import { createMatchesRouter } from './interfaces/http/matches-route.js';
 import { SportsDataProvider } from './application/ports/sports-data-provider.js';
 import { InMemorySportsDataProvider } from './infrastructure/providers/in-memory/in-memory-sports-data-provider.js';
 import { FootballDataOrgAdapter } from './infrastructure/providers/football-data-org/football-data-org-adapter.js';
+import { InMemoryCache } from './infrastructure/cache/memory/in-memory-cache.js';
 
 export function resolveSportsDataProvider(): SportsDataProvider {
   const providerType = process.env['SPORTS_DATA_PROVIDER'] ?? 'in-memory';
@@ -32,7 +32,8 @@ export function resolveSportsDataProvider(): SportsDataProvider {
         '[Athena] ERREUR DE CONFIGURATION : FOOTBALL_DATA_API_KEY est requise lorsque SPORTS_DATA_PROVIDER=football-data-org.'
       );
     }
-    return new FootballDataOrgAdapter({ apiKey });
+    const adapter = new FootballDataOrgAdapter({ apiKey });
+    return new InMemoryCache(adapter, { ttlMs: 600_000 });
   }
 
   throw new Error(

@@ -1,5 +1,5 @@
 /**
- * Tests d'intégration — Sélection du fournisseur et validation de configuration au démarrage (DEC-006).
+ * Tests d'intégration — Sélection du fournisseur et validation de configuration au démarrage (DEC-006 + DEC-008.1).
  * Couche Application / Interfaces.
  */
 
@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { resolveSportsDataProvider, createApp } from '../../src/app.js';
 import { InMemorySportsDataProvider } from '../../src/infrastructure/providers/in-memory/in-memory-sports-data-provider.js';
 import { FootballDataOrgAdapter } from '../../src/infrastructure/providers/football-data-org/football-data-org-adapter.js';
+import { InMemoryCache } from '../../src/infrastructure/cache/memory/in-memory-cache.js';
 
 describe('Provider Selection & Startup Validation (DEC-006)', () => {
   const originalEnv = process.env;
@@ -36,12 +37,15 @@ describe('Provider Selection & Startup Validation (DEC-006)', () => {
     expect(provider).toBeInstanceOf(InMemorySportsDataProvider);
   });
 
-  it('3. SPORTS_DATA_PROVIDER=football-data-org avec une clé valide sélectionne FootballDataOrgAdapter', () => {
+  it('3. SPORTS_DATA_PROVIDER=football-data-org avec une clé valide sélectionne InMemoryCache(FootballDataOrgAdapter) (DEC-008.1)', () => {
     process.env['SPORTS_DATA_PROVIDER'] = 'football-data-org';
     process.env['FOOTBALL_DATA_API_KEY'] = 'TEST_KEY_NEVER_SENT';
 
     const provider = resolveSportsDataProvider();
-    expect(provider).toBeInstanceOf(FootballDataOrgAdapter);
+    // Phase 2.10 : InMemoryCache enveloppe FootballDataOrgAdapter
+    expect(provider).toBeInstanceOf(InMemoryCache);
+    // FootballDataOrgAdapter seul n'est plus retourné directement
+    expect(provider).not.toBeInstanceOf(FootballDataOrgAdapter);
   });
 
   it('4. La création de l\'application en mode réel n\'effectue aucun appel réseau', () => {
@@ -104,5 +108,37 @@ describe('Provider Selection & Startup Validation (DEC-006)', () => {
       expect(err.message).not.toContain('TEST_KEY_NEVER_SENT');
       expect(err.message).toContain('FOOTBALL_DATA_API_KEY est requise');
     }
+  });
+
+  it('10. SPORTS_DATA_PROVIDER=football-data-org — deux appels identiques n\'effectuent qu\'un seul appel réseau (DEC-008.5)', async () => {
+    process.env['SPORTS_DATA_PROVIDER'] = 'football-data-org';
+    process.env['FOOTBALL_DATA_API_KEY'] = 'TEST_KEY_NEVER_SENT';
+
+    let fetchCallCount = 0;
+    const mockFetch = vi.fn().mockImplementation(async () => {
+      fetchCallCount++;
+      return new Response(JSON.stringify({ matches: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+
+    const customAdapter = new FootballDataOrgAdapter({
+      apiKey: 'TEST_KEY_NEVER_SENT',
+      fetchFn: mockFetch,
+    });
+    const cachedProvider = new InMemoryCache(customAdapter, { ttlMs: 600_000 });
+
+    const app = createApp(cachedProvider);
+    expect(app).toBeDefined();
+    expect(fetchCallCount).toBe(0); // aucun appel à la construction
+
+    // Premier appel via le fournisseur caché
+    await cachedProvider.getMatches('FL1');
+    expect(fetchCallCount).toBe(1);
+
+    // Deuxième appel identique — doit utiliser le cache
+    await cachedProvider.getMatches('FL1');
+    expect(fetchCallCount).toBe(1); // toujours 1 seul appel réseau
   });
 });
