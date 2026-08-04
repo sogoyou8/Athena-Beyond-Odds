@@ -105,15 +105,24 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
 
   async getMatches(
     competitionCode: string,
-    _fromDate?: Date,
-    _toDate?: Date
+    fromDate?: Date,
+    toDate?: Date
   ): Promise<Match[]> {
-    const now = this.clockFn();
-    const dateFromStr = this.formatUtcDate(now);
+    let dateFromStr: string;
+    let dateToStr: string;
 
-    const endDate = new Date(now.getTime());
-    endDate.setUTCDate(endDate.getUTCDate() + 7);
-    const dateToStr = this.formatUtcDate(endDate);
+    if (fromDate !== undefined && toDate !== undefined) {
+      // Both explicit bounds provided — use them as-is (DEC-008.3 / Option A).
+      dateFromStr = this.formatUtcDate(fromDate);
+      dateToStr = this.formatUtcDate(toDate);
+    } else {
+      // Default: rolling 7-day UTC window starting from now.
+      const now = this.clockFn();
+      dateFromStr = this.formatUtcDate(now);
+      const endDate = new Date(now.getTime());
+      endDate.setUTCDate(endDate.getUTCDate() + 7);
+      dateToStr = this.formatUtcDate(endDate);
+    }
 
     const url = `${this.baseUrl}/competitions/${encodeURIComponent(
       competitionCode

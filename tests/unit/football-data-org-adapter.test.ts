@@ -227,4 +227,85 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
     expect(matches).toHaveLength(2);
     expect(matches.map((m) => m.id)).toEqual(['match-1', 'match-3']);
   });
+
+  it('utilise les bornes explicites fromDate et toDate quand les deux sont fournies (DEC-008.3 Option A)', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ matches: [] }), { status: 200 })
+    );
+
+    const adapter = new FootballDataOrgAdapter({
+      apiKey: 'test-key',
+      fetchFn: mockFetch,
+      clockFn: mockClock, // horloge non consultée dans ce cas
+    });
+
+    const explicitFrom = new Date('2026-09-01T00:00:00.000Z');
+    const explicitTo = new Date('2026-09-08T00:00:00.000Z');
+
+    await adapter.getMatches('FL1', explicitFrom, explicitTo);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [callUrl] = mockFetch.mock.calls[0];
+    expect(callUrl).toContain('dateFrom=2026-09-01');
+    expect(callUrl).toContain('dateTo=2026-09-08');
+    // La fenêtre par défaut (now=2026-07-30) ne doit pas apparaître
+    expect(callUrl).not.toContain('dateFrom=2026-07-30');
+    expect(callUrl).not.toContain('dateTo=2026-08-06');
+  });
+
+  it('utilise la fenêtre par défaut [now, now+7j) quand aucune borne n\'est fournie', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ matches: [] }), { status: 200 })
+    );
+
+    const adapter = new FootballDataOrgAdapter({
+      apiKey: 'test-key',
+      fetchFn: mockFetch,
+      clockFn: mockClock, // maintenant 2026-07-30
+    });
+
+    await adapter.getMatches('FL1');
+
+    const [callUrl] = mockFetch.mock.calls[0];
+    expect(callUrl).toContain('dateFrom=2026-07-30');
+    expect(callUrl).toContain('dateTo=2026-08-06');
+  });
+
+  it('utilise la fenêtre par défaut [now, now+7j) quand seule fromDate est fournie', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ matches: [] }), { status: 200 })
+    );
+
+    const adapter = new FootballDataOrgAdapter({
+      apiKey: 'test-key',
+      fetchFn: mockFetch,
+      clockFn: mockClock,
+    });
+
+    // Une seule borne → comportement par défaut
+    await adapter.getMatches('FL1', new Date('2026-09-01T00:00:00Z'), undefined);
+
+    const [callUrl] = mockFetch.mock.calls[0];
+    expect(callUrl).toContain('dateFrom=2026-07-30');
+    expect(callUrl).toContain('dateTo=2026-08-06');
+  });
+
+  it('utilise la fenêtre par défaut [now, now+7j) quand seule toDate est fournie', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ matches: [] }), { status: 200 })
+    );
+
+    const adapter = new FootballDataOrgAdapter({
+      apiKey: 'test-key',
+      fetchFn: mockFetch,
+      clockFn: mockClock,
+    });
+
+    // Une seule borne → comportement par défaut
+    await adapter.getMatches('FL1', undefined, new Date('2026-09-08T00:00:00Z'));
+
+    const [callUrl] = mockFetch.mock.calls[0];
+    expect(callUrl).toContain('dateFrom=2026-07-30');
+    expect(callUrl).toContain('dateTo=2026-08-06');
+  });
 });
