@@ -276,3 +276,49 @@ Avant l'implémentation, vérifier que `FootballDataOrgAdapter.getMatches()` res
 ```text
 PHASE 2.10 BLOQUÉE — CONTRAT DES FENÊTRES DE DATES À ARBITRER
 ```
+
+---
+
+## DEC-009 — Observabilité minimale et sûre
+
+- **Date :** 2026-08-05
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Référence :** Commit `fcd3d80d20157baec4c407c9fe7d653384aa1e33`
+- **Branche :** `architecture/phase-2-technical-design`
+- **Document de référence :** [phase-2-11-minimal-observability-pack.md](../03-technical-architecture/phase-2-11-minimal-observability-pack.md)
+
+### DEC-009.1 — Événements Observables
+
+Événements cache approuvés : `cache_hit`, `cache_miss`, `cache_expired`, `cache_bypass`, `cache_in_flight_join`.
+Événements fournisseur approuvés : `provider_request_started`, `provider_request_succeeded`, `provider_rate_limited`, `provider_unavailable`.
+Champ de durée : `durationMs` (numérique >= 0) présent sur `provider_request_succeeded`, `provider_rate_limited` et `provider_unavailable`.
+Aucun événement séparé `provider_request_duration`. Aucun événement ajouté dans `matches-route.ts`, `ListScheduledMatchesUseCase`, `SportsDataProvider` ou le domaine.
+
+### DEC-009.2 — Observer Typé Injectable
+
+Option A retenue : `TelemetryObserver = (event: TelemetryEvent) => void` injectable dans `InMemoryCache` et `FootballDataOrgAdapter`.
+Observer par défaut : no-op `() => {}`. Domaine et port `SportsDataProvider` inchangés.
+Isolation obligatoire : Une exception de l'observer est capturée et n'altère jamais la réponse métier, le cache ou le nettoyage `in-flight`.
+
+### DEC-009.3 — Activation par Variable d'Environnement
+
+Variable optionnelle `ATHENA_TELEMETRY=off|console` (défaut : `off`).
+`off` ou absente : observabilité désactivée (observer no-op). `console` : observer console activé. Valeur inconnue : échec au démarrage.
+Aucun fichier `.env`, aucun `dotenv`, aucune dépendance npm. Silent par défaut dans les tests (`npm test`).
+
+### DEC-009.4 — Données Autorisées et Sécurité des Secrets
+
+Champs autorisés : `type`, `competitionCode`, `dateFrom` (YYYY-MM-DD), `dateTo` (YYYY-MM-DD), `matchCount`, `durationMs`, `providedBound`, `failureKind`.
+Données interdites : `FOOTBALL_DATA_API_KEY`, en-tête `X-Auth-Token`, headers complets, URL complète, query string brute, corps fournisseur, objets `Request`/`Response`/`Error`, messages d'erreur bruts, stack traces, chemins locaux.
+Catégories d'erreur contrôlées (`failureKind`) : `timeout`, `network`, `unauthorized`, `forbidden`, `upstream_5xx`, `invalid_response`, `unknown`.
+
+### DEC-009.5 — Destination et Format Console
+
+Lorsque `ATHENA_TELEMETRY=console`, format NDJSON (une ligne JSON valide par événement) contenant `"scope": "athena.telemetry"`.
+Canaux : `stdout` (`console.log`) pour événements normaux, `stderr` (`console.error`) pour `provider_rate_limited` et `provider_unavailable`.
+Aucune rétention (pas de fichier log, pas de SQLite, pas de Redis, pas de SaaS, pas d'OpenTelemetry).
+
+### DEC-009.6 — Tests Obligatoires
+
+Suite de 45 cas minimum (cache, fournisseur, mesure du temps, composition) sans aucun appel réseau réel, sans `setTimeout` réel et déterministe.
