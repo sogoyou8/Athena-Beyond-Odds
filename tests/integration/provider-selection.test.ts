@@ -193,7 +193,7 @@ describe('Provider Selection & Startup Validation (DEC-006)', () => {
       process.env['SPORTS_DATA_PROVIDER'] = 'in-memory';
 
       expect(() => resolveSportsDataProvider()).toThrow(
-        '[Athena] ERREUR DE CONFIGURATION : Valeur inconnue pour ATHENA_TELEMETRY: "invalid_telemetry_mode". Seules "off" et "console" sont autorisées.'
+        '[Athena] Invalid ATHENA_TELEMETRY value. Expected "off" or "console".'
       );
     });
   });

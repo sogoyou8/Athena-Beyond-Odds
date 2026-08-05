@@ -153,6 +153,6 @@ export function resolveTelemetryObserver(
   }
 
   throw new Error(
-    `[Athena] ERREUR DE CONFIGURATION : Valeur inconnue pour ATHENA_TELEMETRY: "${mode}". Seules "off" et "console" sont autorisées.`
+    '[Athena] Invalid ATHENA_TELEMETRY value. Expected "off" or "console".'
   );
 }

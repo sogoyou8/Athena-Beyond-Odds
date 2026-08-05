@@ -159,9 +159,11 @@ export class InMemoryCache implements SportsDataProvider {
       return Promise.resolve(cached.value);
     }
 
-    // Cas 4 : suppression de l'entrée expirée
+    // Cas 4 : suppression de l'entrée expirée — indicateur pour éviter cache_miss.
+    let wasExpired = false;
     if (cached !== undefined) {
       this.store.delete(key);
+      wasExpired = true;
       safeObserve(this.observer, {
         type: 'cache_expired',
         competitionCode,
@@ -182,15 +184,17 @@ export class InMemoryCache implements SportsDataProvider {
       return existing;
     }
 
-    // Cas 6 : pas de promesse en cours -> cache_miss et déclenchement de l'appel fournisseur.
-    safeObserve(this.observer, {
-      type: 'cache_miss',
-      competitionCode,
-      dateFrom: dateFromStr,
-      dateTo: dateToStr,
-    });
+    // Cas 6 : pas de promesse en cours → cache_miss uniquement si l'entrée était absente.
+    if (!wasExpired) {
+      safeObserve(this.observer, {
+        type: 'cache_miss',
+        competitionCode,
+        dateFrom: dateFromStr,
+        dateTo: dateToStr,
+      });
+    }
 
-    // Cas 6 : appel fournisseur (cache froid).
+    // Cas 6 : appel fournisseur (cache froid ou renouvellement après expiration).
     const promise = this.next
       .getMatches(competitionCode, effectiveFrom, effectiveTo)
       .then((value) => {

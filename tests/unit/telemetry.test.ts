@@ -192,10 +192,35 @@ describe('Telemetry Module (telemetry.ts)', () => {
       expect(mockConsole.log).toHaveBeenCalledTimes(1);
     });
 
-    it('lève une erreur de configuration non sensible si la valeur est inconnue', () => {
+    it('lève une erreur de configuration générique si la valeur est inconnue — message non sensible', () => {
       expect(() => resolveTelemetryObserver('invalid_value')).toThrow(
-        '[Athena] ERREUR DE CONFIGURATION : Valeur inconnue pour ATHENA_TELEMETRY: "invalid_value". Seules "off" et "console" sont autorisées.'
+        '[Athena] Invalid ATHENA_TELEMETRY value. Expected "off" or "console".'
       );
+    });
+
+    it('TEST SENTINELLE — le message ne recopie jamais la valeur reçue', () => {
+      const sentinel = 'secret-value-that-must-not-appear';
+      const mockConsoleLog = vi.fn();
+      const mockConsoleError = vi.fn();
+
+      let caughtError: Error | undefined;
+      try {
+        resolveTelemetryObserver(sentinel);
+      } catch (e) {
+        caughtError = e as Error;
+      }
+
+      // Une erreur doit bien être levée
+      expect(caughtError).toBeDefined();
+      // Le message est exactement le message générique attendu
+      expect(caughtError!.message).toBe(
+        '[Athena] Invalid ATHENA_TELEMETRY value. Expected "off" or "console".'
+      );
+      // La sentinelle n'apparaît pas dans le message
+      expect(caughtError!.message).not.toContain(sentinel);
+      // Aucun log console
+      expect(mockConsoleLog).not.toHaveBeenCalled();
+      expect(mockConsoleError).not.toHaveBeenCalled();
     });
   });
 });
