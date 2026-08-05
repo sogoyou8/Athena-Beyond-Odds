@@ -24,6 +24,11 @@
 import { SportsDataProvider } from '../../../application/ports/sports-data-provider.js';
 import { Competition } from '../../../domain/entities/competition.js';
 import { Match } from '../../../domain/entities/match.js';
+import {
+  TelemetryObserver,
+  NOOP_TELEMETRY_OBSERVER,
+  safeObserve,
+} from '../../../shared/observability/telemetry.js';
 
 // ---------------------------------------------------------------------------
 // Types internes
@@ -36,6 +41,8 @@ export interface InMemoryCacheOptions {
   ttlMs?: number;
   /** Horloge injectable pour les tests. Défaut : () => new Date(). */
   clock?: CacheClock;
+  /** Observer de télémétrie injectable. Défaut : NOOP_TELEMETRY_OBSERVER. */
+  observer?: TelemetryObserver;
 }
 
 interface CacheEntry {
@@ -69,6 +76,7 @@ export class InMemoryCache implements SportsDataProvider {
   private readonly next: SportsDataProvider;
   private readonly ttlMs: number;
   private readonly clock: CacheClock;
+  private readonly observer: TelemetryObserver;
 
   /** Entrées mises en cache, indexées par clé. */
   private readonly store = new Map<string, CacheEntry>();
@@ -80,6 +88,7 @@ export class InMemoryCache implements SportsDataProvider {
     this.next = next;
     this.ttlMs = options.ttlMs ?? 600_000;
     this.clock = options.clock ?? (() => new Date());
+    this.observer = options.observer ?? NOOP_TELEMETRY_OBSERVER;
   }
 
   // -------------------------------------------------------------------------
@@ -95,7 +104,7 @@ export class InMemoryCache implements SportsDataProvider {
   }
 
   // -------------------------------------------------------------------------
-  // getMatches — avec cache
+  // getMatches — avec cache et télémétrie
   // -------------------------------------------------------------------------
 
   getMatches(
@@ -108,6 +117,12 @@ export class InMemoryCache implements SportsDataProvider {
     const hasNone = fromDate === undefined && toDate === undefined;
 
     if (!hasBoth && !hasNone) {
+      const providedBound = fromDate !== undefined ? 'from-only' : 'to-only';
+      safeObserve(this.observer, {
+        type: 'cache_bypass',
+        competitionCode,
+        providedBound,
+      });
       // Exactement une seule borne : délégation directe sans cache.
       return this.next.getMatches(competitionCode, fromDate, toDate);
     }
@@ -126,25 +141,54 @@ export class InMemoryCache implements SportsDataProvider {
       effectiveTo = toDate as Date;
     }
 
-    const key = `${competitionCode}:${formatUtcDate(effectiveFrom)}:${formatUtcDate(effectiveTo)}`;
+    const dateFromStr = formatUtcDate(effectiveFrom);
+    const dateToStr = formatUtcDate(effectiveTo);
+    const key = `${competitionCode}:${dateFromStr}:${dateToStr}`;
     const nowMs = this.clock().getTime();
 
     // Cas 3 : cache chaud et non expiré.
     const cached = this.store.get(key);
     if (cached !== undefined && nowMs < cached.expiresAt) {
+      safeObserve(this.observer, {
+        type: 'cache_hit',
+        competitionCode,
+        dateFrom: dateFromStr,
+        dateTo: dateToStr,
+        matchCount: cached.value.length,
+      });
       return Promise.resolve(cached.value);
     }
 
-    // Cas 4 : suppression de l'entrée expirée.
+    // Cas 4 : suppression de l'entrée expirée
     if (cached !== undefined) {
       this.store.delete(key);
+      safeObserve(this.observer, {
+        type: 'cache_expired',
+        competitionCode,
+        dateFrom: dateFromStr,
+        dateTo: dateToStr,
+      });
     }
 
     // Cas 5 : déduplication — un appel pour cette clé est déjà en cours.
     const existing = this.inflight.get(key);
     if (existing !== undefined) {
+      safeObserve(this.observer, {
+        type: 'cache_in_flight_join',
+        competitionCode,
+        dateFrom: dateFromStr,
+        dateTo: dateToStr,
+      });
       return existing;
     }
+
+    // Cas 6 : pas de promesse en cours -> cache_miss et déclenchement de l'appel fournisseur.
+    safeObserve(this.observer, {
+      type: 'cache_miss',
+      competitionCode,
+      dateFrom: dateFromStr,
+      dateTo: dateToStr,
+    });
 
     // Cas 6 : appel fournisseur (cache froid).
     const promise = this.next

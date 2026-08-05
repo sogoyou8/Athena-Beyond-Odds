@@ -520,4 +520,172 @@ describe('InMemoryCache (DEC-008.6)', () => {
     expect(capturedCalls[0].code).not.toContain('api-key');
     expect(capturedCalls[0].code).not.toContain('token');
   });
+
+  describe('Phase 2.11 — Observabilité du Cache (DEC-009)', () => {
+    it('émet cache_miss lors du premier appel (cache froid)', async () => {
+      const observer = vi.fn();
+      const provider = makeProvider([makeMatch('m1')]);
+      const clock = vi.fn().mockReturnValue(FIXED_NOW);
+      const cache = new InMemoryCache(provider, { ttlMs: TTL_MS, clock, observer });
+
+      await cache.getMatches('FL1');
+
+      expect(observer).toHaveBeenCalledTimes(1);
+      expect(observer).toHaveBeenCalledWith({
+        type: 'cache_miss',
+        competitionCode: 'FL1',
+        dateFrom: '2026-08-05',
+        dateTo: '2026-08-12',
+      });
+    });
+
+    it('émet cache_hit sur cache chaud avec matchCount exact', async () => {
+      const observer = vi.fn();
+      const provider = makeProvider([makeMatch('m1'), makeMatch('m2')]);
+      const clock = vi.fn().mockReturnValue(FIXED_NOW);
+      const cache = new InMemoryCache(provider, { ttlMs: TTL_MS, clock, observer });
+
+      await cache.getMatches('FL1'); // miss
+      observer.mockClear();
+
+      await cache.getMatches('FL1'); // hit
+
+      expect(observer).toHaveBeenCalledTimes(1);
+      expect(observer).toHaveBeenCalledWith({
+        type: 'cache_hit',
+        competitionCode: 'FL1',
+        dateFrom: '2026-08-05',
+        dateTo: '2026-08-12',
+        matchCount: 2,
+      });
+    });
+
+    it('émet cache_expired puis cache_miss lors de la première requête après le TTL', async () => {
+      const observer = vi.fn();
+      const provider = makeProvider([makeMatch('m1')]);
+      let currentMs = FIXED_NOW.getTime();
+      const clock = () => new Date(currentMs);
+      const cache = new InMemoryCache(provider, { ttlMs: TTL_MS, clock, observer });
+
+      await cache.getMatches('FL1'); // miss initial
+      observer.mockClear();
+
+      currentMs += TTL_MS + 1; // expiré
+
+      await cache.getMatches('FL1'); // expired + miss (renouvellement)
+
+      expect(observer).toHaveBeenCalledTimes(2);
+      expect(observer).toHaveBeenNthCalledWith(1, {
+        type: 'cache_expired',
+        competitionCode: 'FL1',
+        dateFrom: '2026-08-05',
+        dateTo: '2026-08-12',
+      });
+      expect(observer).toHaveBeenNthCalledWith(2, {
+        type: 'cache_miss',
+        competitionCode: 'FL1',
+        dateFrom: '2026-08-05',
+        dateTo: '2026-08-12',
+      });
+    });
+
+    it('émet cache_bypass avec providedBound from-only si seule fromDate est fournie', async () => {
+      const observer = vi.fn();
+      const provider = makeProvider([]);
+      const cache = new InMemoryCache(provider, { observer });
+
+      await cache.getMatches('FL1', new Date('2026-08-01'));
+
+      expect(observer).toHaveBeenCalledTimes(1);
+      expect(observer).toHaveBeenCalledWith({
+        type: 'cache_bypass',
+        competitionCode: 'FL1',
+        providedBound: 'from-only',
+      });
+    });
+
+    it('émet cache_bypass avec providedBound to-only si seule toDate est fournie', async () => {
+      const observer = vi.fn();
+      const provider = makeProvider([]);
+      const cache = new InMemoryCache(provider, { observer });
+
+      await cache.getMatches('FL1', undefined, new Date('2026-08-10'));
+
+      expect(observer).toHaveBeenCalledTimes(1);
+      expect(observer).toHaveBeenCalledWith({
+        type: 'cache_bypass',
+        competitionCode: 'FL1',
+        providedBound: 'to-only',
+      });
+    });
+
+    it('émet cache_in_flight_join pour la seconde requête simultanée de même clé', async () => {
+      const observer = vi.fn();
+      let resolveFirstCall: (value: Match[]) => void;
+      const delayedPromise = new Promise<Match[]>((resolve) => {
+        resolveFirstCall = resolve;
+      });
+
+      const provider: SportsDataProvider = {
+        getCompetitions: vi.fn(),
+        getMatches: vi.fn().mockReturnValue(delayedPromise),
+        getMatchDetails: vi.fn(),
+      };
+
+      const clock = vi.fn().mockReturnValue(FIXED_NOW);
+      const cache = new InMemoryCache(provider, { ttlMs: TTL_MS, clock, observer });
+
+      const p1 = cache.getMatches('FL1');
+      const p2 = cache.getMatches('FL1');
+
+      expect(observer).toHaveBeenNthCalledWith(1, {
+        type: 'cache_miss',
+        competitionCode: 'FL1',
+        dateFrom: '2026-08-05',
+        dateTo: '2026-08-12',
+      });
+
+      expect(observer).toHaveBeenNthCalledWith(2, {
+        type: 'cache_in_flight_join',
+        competitionCode: 'FL1',
+        dateFrom: '2026-08-05',
+        dateTo: '2026-08-12',
+      });
+
+      resolveFirstCall!([makeMatch('m1')]);
+      await Promise.all([p1, p2]);
+    });
+
+    it("n'empêche pas le fonctionnement du cache si l'observer lève une exception", async () => {
+      const faultyObserver = vi.fn().mockImplementation(() => {
+        throw new Error('Observer error');
+      });
+
+      const provider = makeProvider([makeMatch('m1')]);
+      const clock = vi.fn().mockReturnValue(FIXED_NOW);
+      const cache = new InMemoryCache(provider, { ttlMs: TTL_MS, clock, observer: faultyObserver });
+
+      const res1 = await cache.getMatches('FL1');
+      const res2 = await cache.getMatches('FL1');
+
+      expect(res1).toHaveLength(1);
+      expect(res2).toHaveLength(1);
+      expect(provider.callCount).toBe(1);
+    });
+
+    it("n'expose aucun secret ou clé complète de cache dans l'événement de télémétrie", async () => {
+      const observer = vi.fn();
+      const provider = makeProvider([]);
+      const clock = vi.fn().mockReturnValue(FIXED_NOW);
+      const cache = new InMemoryCache(provider, { ttlMs: TTL_MS, clock, observer });
+
+      await cache.getMatches('FL1');
+
+      const event = observer.mock.calls[0][0];
+      expect(event).not.toHaveProperty('key');
+      expect(JSON.stringify(event)).not.toContain('api-key');
+      expect(JSON.stringify(event)).not.toContain('token');
+    });
+  });
 });
+

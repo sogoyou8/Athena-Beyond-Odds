@@ -17,8 +17,10 @@ import { SportsDataProvider } from './application/ports/sports-data-provider.js'
 import { InMemorySportsDataProvider } from './infrastructure/providers/in-memory/in-memory-sports-data-provider.js';
 import { FootballDataOrgAdapter } from './infrastructure/providers/football-data-org/football-data-org-adapter.js';
 import { InMemoryCache } from './infrastructure/cache/memory/in-memory-cache.js';
+import { resolveTelemetryObserver } from './shared/observability/telemetry.js';
 
 export function resolveSportsDataProvider(): SportsDataProvider {
+  const telemetryObserver = resolveTelemetryObserver(process.env['ATHENA_TELEMETRY']);
   const providerType = process.env['SPORTS_DATA_PROVIDER'] ?? 'in-memory';
 
   if (providerType === 'in-memory') {
@@ -32,8 +34,8 @@ export function resolveSportsDataProvider(): SportsDataProvider {
         '[Athena] ERREUR DE CONFIGURATION : FOOTBALL_DATA_API_KEY est requise lorsque SPORTS_DATA_PROVIDER=football-data-org.'
       );
     }
-    const adapter = new FootballDataOrgAdapter({ apiKey });
-    return new InMemoryCache(adapter, { ttlMs: 600_000 });
+    const adapter = new FootballDataOrgAdapter({ apiKey, observer: telemetryObserver });
+    return new InMemoryCache(adapter, { ttlMs: 600_000, observer: telemetryObserver });
   }
 
   throw new Error(

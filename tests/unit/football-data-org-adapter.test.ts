@@ -308,4 +308,271 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
     expect(callUrl).toContain('dateFrom=2026-07-30');
     expect(callUrl).toContain('dateTo=2026-08-06');
   });
+
+  describe('Phase 2.11 — Observabilité de l\'Adaptateur Fournisseur (DEC-009)', () => {
+    it('émet provider_request_started et provider_request_succeeded lors d\'une requête réussie', async () => {
+      const observer = vi.fn();
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ matches: [] }), { status: 200 })
+      );
+
+      let timeCall = 0;
+      const durationClock = () => {
+        timeCall += 50;
+        return timeCall;
+      };
+
+      const adapter = new FootballDataOrgAdapter({
+        apiKey: 'test-key',
+        fetchFn: mockFetch,
+        clockFn: mockClock,
+        durationClock,
+        observer,
+      });
+
+      await adapter.getMatches('FL1');
+
+      expect(observer).toHaveBeenCalledTimes(2);
+
+      expect(observer).toHaveBeenNthCalledWith(1, {
+        type: 'provider_request_started',
+        competitionCode: 'FL1',
+        dateFrom: '2026-07-30',
+        dateTo: '2026-08-06',
+      });
+
+      expect(observer).toHaveBeenNthCalledWith(2, {
+        type: 'provider_request_succeeded',
+        competitionCode: 'FL1',
+        dateFrom: '2026-07-30',
+        dateTo: '2026-08-06',
+        durationMs: 50,
+        matchCount: 0,
+      });
+    });
+
+    it('émet provider_rate_limited lors d\'une réponse HTTP 429', async () => {
+      const observer = vi.fn();
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response('Rate limit', { status: 429 })
+      );
+
+      let timeCall = 100;
+      const durationClock = () => (timeCall += 30);
+
+      const adapter = new FootballDataOrgAdapter({
+        apiKey: 'test-key',
+        fetchFn: mockFetch,
+        clockFn: mockClock,
+        durationClock,
+        observer,
+      });
+
+      await expect(adapter.getMatches('FL1')).rejects.toThrow(ProviderRateLimitError);
+
+      expect(observer).toHaveBeenCalledWith({
+        type: 'provider_rate_limited',
+        competitionCode: 'FL1',
+        durationMs: 30,
+      });
+    });
+
+    it('émet provider_unavailable avec failureKind unauthorized (401) et forbidden (403)', async () => {
+      const observer = vi.fn();
+      const mockFetch401 = vi.fn().mockResolvedValue(new Response('Unauthorized', { status: 401 }));
+
+      const adapter401 = new FootballDataOrgAdapter({
+        apiKey: 'invalid-key',
+        fetchFn: mockFetch401,
+        clockFn: mockClock,
+        observer,
+      });
+
+      await expect(adapter401.getMatches('FL1')).rejects.toThrow(ProviderUnavailableError);
+
+      expect(observer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'provider_unavailable',
+          competitionCode: 'FL1',
+          failureKind: 'unauthorized',
+        })
+      );
+
+      observer.mockClear();
+      const mockFetch403 = vi.fn().mockResolvedValue(new Response('Forbidden', { status: 403 }));
+      const adapter403 = new FootballDataOrgAdapter({
+        apiKey: 'forbidden-key',
+        fetchFn: mockFetch403,
+        clockFn: mockClock,
+        observer,
+      });
+
+      await expect(adapter403.getMatches('FL1')).rejects.toThrow(ProviderUnavailableError);
+
+      expect(observer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'provider_unavailable',
+          competitionCode: 'FL1',
+          failureKind: 'forbidden',
+        })
+      );
+    });
+
+    it('émet provider_unavailable avec failureKind upstream_5xx sur HTTP 500', async () => {
+      const observer = vi.fn();
+      const mockFetch = vi.fn().mockResolvedValue(new Response('Server Error', { status: 500 }));
+
+      const adapter = new FootballDataOrgAdapter({
+        apiKey: 'test-key',
+        fetchFn: mockFetch,
+        clockFn: mockClock,
+        observer,
+      });
+
+      await expect(adapter.getMatches('FL1')).rejects.toThrow(ProviderUnavailableError);
+
+      expect(observer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'provider_unavailable',
+          competitionCode: 'FL1',
+          failureKind: 'upstream_5xx',
+        })
+      );
+    });
+
+    it('émet provider_unavailable avec failureKind network sur erreur réseau', async () => {
+      const observer = vi.fn();
+      const mockFetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+
+      const adapter = new FootballDataOrgAdapter({
+        apiKey: 'test-key',
+        fetchFn: mockFetch,
+        clockFn: mockClock,
+        observer,
+      });
+
+      await expect(adapter.getMatches('FL1')).rejects.toThrow(ProviderUnavailableError);
+
+      expect(observer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'provider_unavailable',
+          competitionCode: 'FL1',
+          failureKind: 'network',
+        })
+      );
+    });
+
+    it('émet provider_unavailable avec failureKind timeout en cas de dépassement de délai', async () => {
+      const observer = vi.fn();
+      const abortErr = new Error('The operation was aborted');
+      abortErr.name = 'AbortError';
+      const mockFetch = vi.fn().mockRejectedValue(abortErr);
+
+      const adapter = new FootballDataOrgAdapter({
+        apiKey: 'test-key',
+        fetchFn: mockFetch,
+        clockFn: mockClock,
+        observer,
+      });
+
+      await expect(adapter.getMatches('FL1')).rejects.toThrow(ProviderUnavailableError);
+
+      expect(observer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'provider_unavailable',
+          competitionCode: 'FL1',
+          failureKind: 'timeout',
+        })
+      );
+    });
+
+    it('émet provider_unavailable avec failureKind invalid_response si le JSON est invalide ou corrompu', async () => {
+      const observer = vi.fn();
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response('Corrupted JSON {', { status: 200 })
+      );
+
+      const adapter = new FootballDataOrgAdapter({
+        apiKey: 'test-key',
+        fetchFn: mockFetch,
+        clockFn: mockClock,
+        observer,
+      });
+
+      await expect(adapter.getMatches('FL1')).rejects.toThrow(ProviderUnavailableError);
+
+      expect(observer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'provider_unavailable',
+          competitionCode: 'FL1',
+          failureKind: 'invalid_response',
+        })
+      );
+    });
+
+    it('normalise les durées négatives, NaN ou exceptions de durationClock à 0', async () => {
+      const observer = vi.fn();
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ matches: [] }), { status: 200 })
+      );
+
+      // durationClock retourne une valeur diminuante (diff négative)
+      let time = 1000;
+      const durationClock = () => (time -= 100);
+
+      const adapter = new FootballDataOrgAdapter({
+        apiKey: 'test-key',
+        fetchFn: mockFetch,
+        clockFn: mockClock,
+        durationClock,
+        observer,
+      });
+
+      await adapter.getMatches('FL1');
+
+      const succeededEvent = observer.mock.calls[1][0];
+      expect(succeededEvent.durationMs).toBe(0);
+    });
+
+    it("n'expose aucun secret (API Key, X-Auth-Token, URL complète, Error stack) dans les événements émis", async () => {
+      const observer = vi.fn();
+      const mockFetch = vi.fn().mockRejectedValue(new Error('Sensitive Stack Trace'));
+
+      const adapter = new FootballDataOrgAdapter({
+        apiKey: 'secret-api-key-12345',
+        baseUrl: 'https://api.football-data.org/v4',
+        fetchFn: mockFetch,
+        clockFn: mockClock,
+        observer,
+      });
+
+      await expect(adapter.getMatches('FL1')).rejects.toThrow();
+
+      for (const call of observer.mock.calls) {
+        const eventJson = JSON.stringify(call[0]);
+        expect(eventJson).not.toContain('secret-api-key-12345');
+        expect(eventJson).not.toContain('X-Auth-Token');
+        expect(eventJson).not.toContain('https://api.football-data.org/v4');
+        expect(eventJson).not.toContain('Sensitive Stack Trace');
+      }
+    });
+
+    it("n'empêche pas la propagation des erreurs métier si l'observer lève une exception", async () => {
+      const faultyObserver = vi.fn().mockImplementation(() => {
+        throw new Error('Observer crash');
+      });
+
+      const mockFetch = vi.fn().mockResolvedValue(new Response('Rate limit', { status: 429 }));
+
+      const adapter = new FootballDataOrgAdapter({
+        apiKey: 'test-key',
+        fetchFn: mockFetch,
+        clockFn: mockClock,
+        observer: faultyObserver,
+      });
+
+      await expect(adapter.getMatches('FL1')).rejects.toThrow(ProviderRateLimitError);
+    });
+  });
 });
+
