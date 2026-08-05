@@ -28,6 +28,12 @@ import { Match } from '../../../domain/entities/match.js';
 import { MatchStatus } from '../../../domain/value-objects/match-status.js';
 import { Team } from '../../../domain/entities/team.js';
 import { Score } from '../../../domain/value-objects/score.js';
+import {
+  TelemetryObserver,
+  NOOP_TELEMETRY_OBSERVER,
+  ProviderFailureKind,
+  safeObserve,
+} from '../../../shared/observability/telemetry.js';
 
 export type HttpFetchFn = (
   input: string | URL,
@@ -35,13 +41,16 @@ export type HttpFetchFn = (
 ) => Promise<Response>;
 
 export type ClockFn = () => Date;
+export type DurationClockFn = () => number;
 
 export interface FootballDataOrgAdapterOptions {
   apiKey?: string;
   baseUrl?: string;
   fetchFn?: HttpFetchFn;
   clockFn?: ClockFn;
+  durationClock?: DurationClockFn;
   timeoutMs?: number;
+  observer?: TelemetryObserver;
 }
 
 const DEFAULT_BASE_URL = 'https://api.football-data.org/v4';
@@ -83,14 +92,18 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
   private readonly baseUrl: string;
   private readonly fetchFn: HttpFetchFn;
   private readonly clockFn: ClockFn;
+  private readonly durationClock: DurationClockFn;
   private readonly timeoutMs: number;
+  private readonly observer: TelemetryObserver;
 
   constructor(options: FootballDataOrgAdapterOptions = {}) {
     this.apiKey = options.apiKey ?? process.env['FOOTBALL_DATA_API_KEY']?.trim() ?? '';
     this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
     this.fetchFn = options.fetchFn ?? globalThis.fetch;
     this.clockFn = options.clockFn ?? (() => new Date());
+    this.durationClock = options.durationClock ?? (() => Date.now());
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.observer = options.observer ?? NOOP_TELEMETRY_OBSERVER;
 
     if (!this.fetchFn) {
       throw new ProviderUnavailableError(
@@ -128,6 +141,36 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
       competitionCode
     )}/matches?dateFrom=${dateFromStr}&dateTo=${dateToStr}`;
 
+    safeObserve(this.observer, {
+      type: 'provider_request_started',
+      competitionCode,
+      dateFrom: dateFromStr,
+      dateTo: dateToStr,
+    });
+
+    let startMs: number;
+    try {
+      startMs = this.durationClock();
+      if (typeof startMs !== 'number' || isNaN(startMs) || !isFinite(startMs)) {
+        startMs = 0;
+      }
+    } catch {
+      startMs = 0;
+    }
+
+    const getDurationMs = (): number => {
+      try {
+        const endMs = this.durationClock();
+        if (typeof endMs !== 'number' || isNaN(endMs) || !isFinite(endMs)) {
+          return 0;
+        }
+        const diff = endMs - startMs;
+        return isNaN(diff) || !isFinite(diff) || diff < 0 ? 0 : diff;
+      } catch {
+        return 0;
+      }
+    };
+
     let response: Response;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -143,11 +186,29 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
       });
     } catch (err: unknown) {
       clearTimeout(timer);
+      const durationMs = getDurationMs();
+      let failureKind: ProviderFailureKind = 'network';
+
       if (err instanceof Error && err.name === 'AbortError') {
+        failureKind = 'timeout';
+        safeObserve(this.observer, {
+          type: 'provider_unavailable',
+          competitionCode,
+          durationMs,
+          failureKind,
+        });
         throw new ProviderUnavailableError(
           `Délai dépassé (${this.timeoutMs}ms) lors de l'appel à football-data.org`
         );
       }
+
+      safeObserve(this.observer, {
+        type: 'provider_unavailable',
+        competitionCode,
+        durationMs,
+        failureKind,
+      });
+
       throw new ProviderUnavailableError(
         `Erreur réseau lors de l'accès à football-data.org: ${(err as Error)?.message ?? 'inconnue'}`
       );
@@ -156,6 +217,12 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
     }
 
     if (response.status === 429) {
+      const durationMs = getDurationMs();
+      safeObserve(this.observer, {
+        type: 'provider_rate_limited',
+        competitionCode,
+        durationMs,
+      });
       throw new ProviderRateLimitError(
         'Limite de débit dépassée (HTTP 429) sur l\'API football-data.org',
         60000
@@ -163,12 +230,30 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
     }
 
     if (response.status === 401 || response.status === 403) {
+      const durationMs = getDurationMs();
+      const failureKind: ProviderFailureKind =
+        response.status === 401 ? 'unauthorized' : 'forbidden';
+      safeObserve(this.observer, {
+        type: 'provider_unavailable',
+        competitionCode,
+        durationMs,
+        failureKind,
+      });
       throw new ProviderUnavailableError(
         `Authentification refusée par football-data.org (HTTP ${response.status})`
       );
     }
 
     if (!response.ok) {
+      const durationMs = getDurationMs();
+      const failureKind: ProviderFailureKind =
+        response.status >= 500 && response.status < 600 ? 'upstream_5xx' : 'unknown';
+      safeObserve(this.observer, {
+        type: 'provider_unavailable',
+        competitionCode,
+        durationMs,
+        failureKind,
+      });
       throw new ProviderUnavailableError(
         `L'API football-data.org a retourné un statut d'erreur: HTTP ${response.status}`
       );
@@ -178,24 +263,58 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
     try {
       payload = (await response.json()) as FootballDataMatchesResponse;
     } catch {
+      const durationMs = getDurationMs();
+      safeObserve(this.observer, {
+        type: 'provider_unavailable',
+        competitionCode,
+        durationMs,
+        failureKind: 'invalid_response',
+      });
       throw new ProviderUnavailableError(
         'Réponse invalide de football-data.org: impossible de parser le JSON'
       );
     }
 
     if (!payload || typeof payload !== 'object' || !Array.isArray(payload.matches)) {
+      const durationMs = getDurationMs();
+      safeObserve(this.observer, {
+        type: 'provider_unavailable',
+        competitionCode,
+        durationMs,
+        failureKind: 'invalid_response',
+      });
       throw new ProviderUnavailableError(
         'Le payload retourné par football-data.org ne contient pas un tableau matches valide.'
       );
     }
 
+    let matches: Match[];
     try {
-      return this.mapMatchesPayload(payload.matches);
+      matches = this.mapMatchesPayload(payload.matches);
     } catch (err: unknown) {
+      const durationMs = getDurationMs();
+      safeObserve(this.observer, {
+        type: 'provider_unavailable',
+        competitionCode,
+        durationMs,
+        failureKind: 'invalid_response',
+      });
       throw new ProviderUnavailableError(
         `Erreur lors du mapping des données football-data.org: ${(err as Error)?.message ?? 'inconnu'}`
       );
     }
+
+    const durationMs = getDurationMs();
+    safeObserve(this.observer, {
+      type: 'provider_request_succeeded',
+      competitionCode,
+      dateFrom: dateFromStr,
+      dateTo: dateToStr,
+      durationMs,
+      matchCount: matches.length,
+    });
+
+    return matches;
   }
 
   getMatchDetails(_externalMatchId: string): Promise<Match> {

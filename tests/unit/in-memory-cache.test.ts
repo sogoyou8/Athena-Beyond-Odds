@@ -520,4 +520,244 @@ describe('InMemoryCache (DEC-008.6)', () => {
     expect(capturedCalls[0].code).not.toContain('api-key');
     expect(capturedCalls[0].code).not.toContain('token');
   });
+
+  describe('Phase 2.11 — Observabilité du Cache (DEC-009)', () => {
+    it('émet cache_miss lors du premier appel (cache froid) — sans cache_expired', async () => {
+      const observer = vi.fn();
+      const provider = makeProvider([makeMatch('m1')]);
+      const clock = vi.fn().mockReturnValue(FIXED_NOW);
+      const cache = new InMemoryCache(provider, { ttlMs: TTL_MS, clock, observer });
+
+      await cache.getMatches('FL1');
+
+      expect(observer).toHaveBeenCalledTimes(1);
+      expect(observer).toHaveBeenCalledWith({
+        type: 'cache_miss',
+        competitionCode: 'FL1',
+        dateFrom: '2026-08-05',
+        dateTo: '2026-08-12',
+      });
+      // Aucun cache_expired sur un cache froid (entrée absente)
+      const types = observer.mock.calls.map((c) => c[0].type);
+      expect(types).not.toContain('cache_expired');
+    });
+
+    it('émet cache_hit sur cache chaud avec matchCount exact', async () => {
+      const observer = vi.fn();
+      const provider = makeProvider([makeMatch('m1'), makeMatch('m2')]);
+      const clock = vi.fn().mockReturnValue(FIXED_NOW);
+      const cache = new InMemoryCache(provider, { ttlMs: TTL_MS, clock, observer });
+
+      await cache.getMatches('FL1'); // miss
+      observer.mockClear();
+
+      await cache.getMatches('FL1'); // hit
+
+      expect(observer).toHaveBeenCalledTimes(1);
+      expect(observer).toHaveBeenCalledWith({
+        type: 'cache_hit',
+        competitionCode: 'FL1',
+        dateFrom: '2026-08-05',
+        dateTo: '2026-08-12',
+        matchCount: 2,
+      });
+    });
+
+    it('émet uniquement cache_expired (sans cache_miss) lors du renouvellement après le TTL', async () => {
+      const observer = vi.fn();
+      const provider = makeProvider([makeMatch('m1')]);
+      let currentMs = FIXED_NOW.getTime();
+      const clock = () => new Date(currentMs);
+      const cache = new InMemoryCache(provider, { ttlMs: TTL_MS, clock, observer });
+
+      await cache.getMatches('FL1'); // miss initial
+      observer.mockClear();
+
+      currentMs += TTL_MS + 1; // expiré
+
+      await cache.getMatches('FL1'); // expired → renouvellement fournisseur
+
+      // Séquence attendue : [cache_expired] uniquement
+      expect(observer).toHaveBeenCalledTimes(1);
+      expect(observer).toHaveBeenCalledWith({
+        type: 'cache_expired',
+        competitionCode: 'FL1',
+        dateFrom: '2026-08-05',
+        dateTo: '2026-08-12',
+      });
+      // cache_miss ne doit jamais être émis pour une entrée expirée
+      const types = observer.mock.calls.map((c) => c[0].type);
+      expect(types).not.toContain('cache_miss');
+      // Le fournisseur a bien été rappelé
+      expect(provider.callCount).toBe(2);
+    });
+
+    it('émet cache_expired puis cache_in_flight_join si une promesse est déjà en cours (sans cache_miss)', async () => {
+      const observer = vi.fn();
+      let resolveFirst!: (v: Match[]) => void;
+      const delayedPromise = new Promise<Match[]>((res) => { resolveFirst = res; });
+
+      let callCount = 0;
+      const provider: SportsDataProvider = {
+        getCompetitions: vi.fn(),
+        getMatches: vi.fn().mockImplementation(() => {
+          callCount++;
+          if (callCount === 1) return Promise.resolve([makeMatch('m1')]);
+          return delayedPromise;
+        }),
+        getMatchDetails: vi.fn(),
+      };
+
+      let currentMs = FIXED_NOW.getTime();
+      const clock = () => new Date(currentMs);
+      const cache = new InMemoryCache(provider, { ttlMs: TTL_MS, clock, observer });
+
+      // Premier appel : peuple le cache
+      await cache.getMatches('FL1');
+      observer.mockClear();
+
+      // Avance après expiration
+      currentMs += TTL_MS + 1;
+
+      // Deuxième appel : déclenche le renouvellement (delayed)
+      const p1 = cache.getMatches('FL1'); // cache_expired + appel fournisseur (delayed)
+      // Troisième appel simultané : rejoint la promesse existante
+      const p2 = cache.getMatches('FL1'); // cache_expired + cache_in_flight_join
+
+      resolveFirst([makeMatch('m2')]);
+      await Promise.all([p1, p2]);
+
+      const types = observer.mock.calls.map((c) => c[0].type);
+      // cache_miss ne doit jamais apparaître
+      expect(types).not.toContain('cache_miss');
+      // cache_expired doit apparaître au moins une fois
+      expect(types).toContain('cache_expired');
+      // cache_in_flight_join pour la requête qui rejoint
+      expect(types).toContain('cache_in_flight_join');
+      // Un seul appel fournisseur pour le renouvellement
+      expect(callCount).toBe(2);
+    });
+
+    it("n'empêche pas le fournisseur d'être rappelé si l'observer lève sur cache_expired", async () => {
+      const faultyObserver = vi.fn().mockImplementation(() => {
+        throw new Error('Observer crash on expired');
+      });
+
+      const provider = makeProvider([makeMatch('fresh')]);
+      let currentMs = FIXED_NOW.getTime();
+      const clock = () => new Date(currentMs);
+      const cache = new InMemoryCache(provider, { ttlMs: TTL_MS, clock, observer: faultyObserver });
+
+      // Premier appel (cache froid — observer levée sur cache_miss absorbée)
+      await cache.getMatches('FL1');
+      expect(provider.callCount).toBe(1);
+
+      // Avance après expiration
+      currentMs += TTL_MS + 1;
+
+      // Deuxième appel : cache_expired → observer crash absorbé → fournisseur rappelé
+      const result = await cache.getMatches('FL1');
+      expect(provider.callCount).toBe(2);
+      expect(result[0].id).toBe('fresh');
+    });
+
+    it('émet cache_bypass avec providedBound from-only si seule fromDate est fournie', async () => {
+      const observer = vi.fn();
+      const provider = makeProvider([]);
+      const cache = new InMemoryCache(provider, { observer });
+
+      await cache.getMatches('FL1', new Date('2026-08-01'));
+
+      expect(observer).toHaveBeenCalledTimes(1);
+      expect(observer).toHaveBeenCalledWith({
+        type: 'cache_bypass',
+        competitionCode: 'FL1',
+        providedBound: 'from-only',
+      });
+    });
+
+    it('émet cache_bypass avec providedBound to-only si seule toDate est fournie', async () => {
+      const observer = vi.fn();
+      const provider = makeProvider([]);
+      const cache = new InMemoryCache(provider, { observer });
+
+      await cache.getMatches('FL1', undefined, new Date('2026-08-10'));
+
+      expect(observer).toHaveBeenCalledTimes(1);
+      expect(observer).toHaveBeenCalledWith({
+        type: 'cache_bypass',
+        competitionCode: 'FL1',
+        providedBound: 'to-only',
+      });
+    });
+
+    it('émet cache_in_flight_join pour la seconde requête simultanée de même clé', async () => {
+      const observer = vi.fn();
+      let resolveFirstCall: (value: Match[]) => void;
+      const delayedPromise = new Promise<Match[]>((resolve) => {
+        resolveFirstCall = resolve;
+      });
+
+      const provider: SportsDataProvider = {
+        getCompetitions: vi.fn(),
+        getMatches: vi.fn().mockReturnValue(delayedPromise),
+        getMatchDetails: vi.fn(),
+      };
+
+      const clock = vi.fn().mockReturnValue(FIXED_NOW);
+      const cache = new InMemoryCache(provider, { ttlMs: TTL_MS, clock, observer });
+
+      const p1 = cache.getMatches('FL1');
+      const p2 = cache.getMatches('FL1');
+
+      expect(observer).toHaveBeenNthCalledWith(1, {
+        type: 'cache_miss',
+        competitionCode: 'FL1',
+        dateFrom: '2026-08-05',
+        dateTo: '2026-08-12',
+      });
+
+      expect(observer).toHaveBeenNthCalledWith(2, {
+        type: 'cache_in_flight_join',
+        competitionCode: 'FL1',
+        dateFrom: '2026-08-05',
+        dateTo: '2026-08-12',
+      });
+
+      resolveFirstCall!([makeMatch('m1')]);
+      await Promise.all([p1, p2]);
+    });
+
+    it("n'empêche pas le fonctionnement du cache si l'observer lève une exception", async () => {
+      const faultyObserver = vi.fn().mockImplementation(() => {
+        throw new Error('Observer error');
+      });
+
+      const provider = makeProvider([makeMatch('m1')]);
+      const clock = vi.fn().mockReturnValue(FIXED_NOW);
+      const cache = new InMemoryCache(provider, { ttlMs: TTL_MS, clock, observer: faultyObserver });
+
+      const res1 = await cache.getMatches('FL1');
+      const res2 = await cache.getMatches('FL1');
+
+      expect(res1).toHaveLength(1);
+      expect(res2).toHaveLength(1);
+      expect(provider.callCount).toBe(1);
+    });
+
+    it("n'expose aucun secret ou clé complète de cache dans l'événement de télémétrie", async () => {
+      const observer = vi.fn();
+      const provider = makeProvider([]);
+      const clock = vi.fn().mockReturnValue(FIXED_NOW);
+      const cache = new InMemoryCache(provider, { ttlMs: TTL_MS, clock, observer });
+
+      await cache.getMatches('FL1');
+
+      const event = observer.mock.calls[0][0];
+      expect(event).not.toHaveProperty('key');
+      expect(JSON.stringify(event)).not.toContain('api-key');
+      expect(JSON.stringify(event)).not.toContain('token');
+    });
+  });
 });
+

@@ -8,6 +8,7 @@ import { resolveSportsDataProvider, createApp } from '../../src/app.js';
 import { InMemorySportsDataProvider } from '../../src/infrastructure/providers/in-memory/in-memory-sports-data-provider.js';
 import { FootballDataOrgAdapter } from '../../src/infrastructure/providers/football-data-org/football-data-org-adapter.js';
 import { InMemoryCache } from '../../src/infrastructure/cache/memory/in-memory-cache.js';
+import { resolveTelemetryObserver } from '../../src/shared/observability/telemetry.js';
 
 describe('Provider Selection & Startup Validation (DEC-006)', () => {
   const originalEnv = process.env;
@@ -141,4 +142,60 @@ describe('Provider Selection & Startup Validation (DEC-006)', () => {
     await cachedProvider.getMatches('FL1');
     expect(fetchCallCount).toBe(1); // toujours 1 seul appel réseau
   });
+
+  describe('Phase 2.11 — Integration ATHENA_TELEMETRY (DEC-009.3)', () => {
+    it('11. ATHENA_TELEMETRY absente ou "off" — aucun événement produit sur la console', async () => {
+      delete process.env['ATHENA_TELEMETRY'];
+      process.env['SPORTS_DATA_PROVIDER'] = 'football-data-org';
+      process.env['FOOTBALL_DATA_API_KEY'] = 'test-key';
+
+      const spyLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const spyError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const provider = resolveSportsDataProvider();
+      expect(provider).toBeDefined();
+
+      expect(spyLog).not.toHaveBeenCalled();
+      expect(spyError).not.toHaveBeenCalled();
+      spyLog.mockRestore();
+      spyError.mockRestore();
+    });
+
+    it('12. ATHENA_TELEMETRY=console — produit du JSON structuré avec scope athena.telemetry', async () => {
+      process.env['ATHENA_TELEMETRY'] = 'console';
+      process.env['SPORTS_DATA_PROVIDER'] = 'football-data-org';
+      process.env['FOOTBALL_DATA_API_KEY'] = 'test-key';
+
+      const spyLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const spyError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      // On reconstruit un adaptateur/cache instrumenté comme app.ts
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ matches: [] }), { status: 200 })
+      );
+
+      const observer = resolveTelemetryObserver('console');
+      const adapter = new FootballDataOrgAdapter({ apiKey: 'test-key', fetchFn: mockFetch, observer });
+      const cache = new InMemoryCache(adapter, { observer });
+
+      await cache.getMatches('FL1');
+
+      expect(spyLog).toHaveBeenCalled();
+      const logs = spyLog.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(logs.some((l) => l.scope === 'athena.telemetry' && l.type === 'provider_request_started')).toBe(true);
+
+      spyLog.mockRestore();
+      spyError.mockRestore();
+    });
+
+    it('13. ATHENA_TELEMETRY avec une valeur inconnue — échec immédiat au démarrage', () => {
+      process.env['ATHENA_TELEMETRY'] = 'invalid_telemetry_mode';
+      process.env['SPORTS_DATA_PROVIDER'] = 'in-memory';
+
+      expect(() => resolveSportsDataProvider()).toThrow(
+        '[Athena] Invalid ATHENA_TELEMETRY value. Expected "off" or "console".'
+      );
+    });
+  });
 });
+
