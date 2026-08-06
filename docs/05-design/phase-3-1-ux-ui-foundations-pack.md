@@ -2,7 +2,8 @@
 
 * **Date :** 2026-08-06
 * **Responsable :** Fondateur ABYSS
-* **Statut :** Cadrage proposé pour validation
+* **Statut :** Approuvé par le Fondateur
+* **Commit d'approbation :** `d39757f5bb6aeb74d8dea58fd7633a5c5e49544e`
 * **Référence technique :** `3ce6e204fc6acffb1ffde03cda78bcf8875e02fa`
 * **Phase précédente :** Phase 2 — Clôturée
 
@@ -168,7 +169,7 @@ Déploiement public, hébergement cloud, SaaS, analytics
 ## 11. Verdict Canonique
 
 ```text
-CADRAGE PHASE 3.1 PROPOSÉ — CONCEPTION UX/UI DÉTAILLÉE ENCORE NON AUTORISÉE
+CADRAGE PHASE 3.1 APPROUVÉ — PRODUCTION DOCUMENTAIRE DÉTAILLÉE AUTORISÉE, IMPLÉMENTATION FRONTEND INTERDITE
 ```
 
 ---
