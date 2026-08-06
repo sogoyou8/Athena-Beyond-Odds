@@ -34,6 +34,10 @@ import {
   ProviderFailureKind,
   safeObserve,
 } from '../../../shared/observability/telemetry.js';
+import {
+  formatUtcDate,
+  addUtcDays,
+} from '../../../shared/date-utils.js';
 
 export type HttpFetchFn = (
   input: string | URL,
@@ -126,15 +130,14 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
 
     if (fromDate !== undefined && toDate !== undefined) {
       // Both explicit bounds provided — use them as-is (DEC-008.3 / Option A).
-      dateFromStr = this.formatUtcDate(fromDate);
-      dateToStr = this.formatUtcDate(toDate);
+      dateFromStr = formatUtcDate(fromDate);
+      dateToStr = formatUtcDate(toDate);
     } else {
       // Default: rolling 7-day UTC window starting from now.
       const now = this.clockFn();
-      dateFromStr = this.formatUtcDate(now);
-      const endDate = new Date(now.getTime());
-      endDate.setUTCDate(endDate.getUTCDate() + 7);
-      dateToStr = this.formatUtcDate(endDate);
+      dateFromStr = formatUtcDate(now);
+      const endDate = addUtcDays(now, 7);
+      dateToStr = formatUtcDate(endDate);
     }
 
     const url = `${this.baseUrl}/competitions/${encodeURIComponent(
@@ -290,7 +293,7 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
 
     let matches: Match[];
     try {
-      matches = this.mapMatchesPayload(payload.matches);
+      matches = this.mapMatchesPayload(payload.matches, competitionCode);
     } catch (err: unknown) {
       const durationMs = getDurationMs();
       safeObserve(this.observer, {
@@ -321,14 +324,10 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
     throw new NotImplementedError('FootballDataOrgAdapter.getMatchDetails');
   }
 
-  private formatUtcDate(d: Date): string {
-    const year = d.getUTCFullYear();
-    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  private mapMatchesPayload(rawMatches: FootballDataMatch[]): Match[] {
+  private mapMatchesPayload(
+    rawMatches: FootballDataMatch[],
+    competitionCode: string
+  ): Match[] {
     const results: Match[] = [];
 
     for (const raw of rawMatches) {
@@ -398,7 +397,7 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
 
       results.push({
         id: `match-${raw.id}`,
-        competitionId: 'FL1',
+        competitionId: competitionCode,
         seasonId: `season-${matchDate.getUTCFullYear()}`,
         matchday: raw.matchday ?? 1,
         utcDate: matchDate,

@@ -574,5 +574,36 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
       await expect(adapter.getMatches('FL1')).rejects.toThrow(ProviderRateLimitError);
     });
   });
+
+  describe('mapping dynamique de competitionId (DEC-010.3)', () => {
+    it('affecte le competitionCode du paramètre au champ competitionId de chaque match mappé', async () => {
+      const mockPayload = {
+        matches: [
+          {
+            id: 9991,
+            utcDate: '2026-08-15T20:00:00Z',
+            status: 'SCHEDULED',
+            homeTeam: { id: 101, name: 'Home Team', shortName: 'Home', tla: 'HOM' },
+            awayTeam: { id: 102, name: 'Away Team', shortName: 'Away', tla: 'AWY' },
+          },
+        ],
+      };
+
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(mockPayload), { status: 200 })
+      );
+
+      const adapter = new FootballDataOrgAdapter({
+        apiKey: 'test-key',
+        fetchFn: mockFetch,
+        clockFn: mockClock,
+      });
+
+      const matches = await adapter.getMatches('FL1');
+      expect(matches).toHaveLength(1);
+      expect(matches[0].competitionId).toBe('FL1');
+      expect(matches[0].competitionId).not.toBe('FIXED_FL1_LITERAL');
+    });
+  });
 });
 

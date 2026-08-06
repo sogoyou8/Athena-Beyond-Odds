@@ -39,7 +39,7 @@ export function resolveSportsDataProvider(): SportsDataProvider {
   }
 
   throw new Error(
-    `[Athena] ERREUR DE CONFIGURATION : Valeur inconnue pour SPORTS_DATA_PROVIDER: "${providerType}". Seules "in-memory" et "football-data-org" sont autorisées.`
+    '[Athena] Invalid SPORTS_DATA_PROVIDER value. Expected "in-memory" or "football-data-org".'
   );
 }
 
