@@ -95,7 +95,7 @@ describe('Provider Selection & Startup Validation (DEC-006)', () => {
     process.env['SPORTS_DATA_PROVIDER'] = 'unknown-provider';
 
     expect(() => resolveSportsDataProvider()).toThrow(
-      '[Athena] ERREUR DE CONFIGURATION : Valeur inconnue pour SPORTS_DATA_PROVIDER: "unknown-provider". Seules "in-memory" et "football-data-org" sont autorisées.'
+      '[Athena] Invalid SPORTS_DATA_PROVIDER value. Expected "in-memory" or "football-data-org".'
     );
   });
 
@@ -105,7 +105,11 @@ describe('Provider Selection & Startup Validation (DEC-006)', () => {
 
     try {
       resolveSportsDataProvider();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      expect(err).toBeInstanceOf(Error);
+      if (!(err instanceof Error)) {
+        throw new Error('Expected an Error instance.');
+      }
       expect(err.message).not.toContain('TEST_KEY_NEVER_SENT');
       expect(err.message).toContain('FOOTBALL_DATA_API_KEY est requise');
     }
@@ -195,6 +199,29 @@ describe('Provider Selection & Startup Validation (DEC-006)', () => {
       expect(() => resolveSportsDataProvider()).toThrow(
         '[Athena] Invalid ATHENA_TELEMETRY value. Expected "off" or "console".'
       );
+    });
+
+    it('14. SPORTS_DATA_PROVIDER avec valeur sentinelle — la sentinelle n\'apparaît dans aucun log ou message', () => {
+      const sentinel = 'secret-provider-value-that-must-not-appear';
+      process.env['SPORTS_DATA_PROVIDER'] = sentinel;
+
+      const spyLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const spyError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      try {
+        resolveSportsDataProvider();
+        expect.unreachable('Devrait lever une erreur');
+      } catch (err: unknown) {
+        expect(err).toBeInstanceOf(Error);
+        const msg = (err as Error).message;
+        expect(msg).toBe('[Athena] Invalid SPORTS_DATA_PROVIDER value. Expected "in-memory" or "football-data-org".');
+        expect(msg).not.toContain(sentinel);
+        expect(spyLog).not.toHaveBeenCalled();
+        expect(spyError).not.toHaveBeenCalled();
+      } finally {
+        spyLog.mockRestore();
+        spyError.mockRestore();
+      }
     });
   });
 });

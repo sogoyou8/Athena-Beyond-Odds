@@ -759,5 +759,31 @@ describe('InMemoryCache (DEC-008.6)', () => {
       expect(JSON.stringify(event)).not.toContain('token');
     });
   });
+
+  describe('Hardening Phase 2.12 — Utilitaires UTC partagés (DEC-010.2)', () => {
+    it('utilise les helpers UTC partagés et préserve la date transmise par clock sans la muter', async () => {
+      const fixedClockDate = new Date('2026-08-06T18:00:00.000Z');
+      const originalTime = fixedClockDate.getTime();
+      const clock = vi.fn().mockReturnValue(fixedClockDate);
+
+      const mockGetMatches = vi.fn().mockResolvedValue([makeMatch('m1')]);
+      const provider: SportsDataProvider = {
+        getCompetitions: vi.fn(),
+        getMatches: mockGetMatches,
+        getMatchDetails: vi.fn(),
+      };
+      const cache = new InMemoryCache(provider, { ttlMs: TTL_MS, clock });
+
+      const matches = await cache.getMatches('FL1');
+
+      expect(matches).toHaveLength(1);
+      expect(fixedClockDate.getTime()).toBe(originalTime);
+      expect(mockGetMatches).toHaveBeenCalledTimes(1);
+      const [compCode, fromDate, toDate] = mockGetMatches.mock.calls[0];
+      expect(compCode).toBe('FL1');
+      expect(fromDate).toEqual(fixedClockDate);
+      expect(toDate).toEqual(new Date('2026-08-13T18:00:00.000Z'));
+    });
+  });
 });
 

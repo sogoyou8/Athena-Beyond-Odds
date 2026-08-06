@@ -51,22 +51,10 @@ interface CacheEntry {
   expiresAt: number;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers UTC
-// ---------------------------------------------------------------------------
-
-function formatUtcDate(d: Date): string {
-  const year = d.getUTCFullYear();
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function addDays(d: Date, days: number): Date {
-  const result = new Date(d.getTime());
-  result.setUTCDate(result.getUTCDate() + days);
-  return result;
-}
+import {
+  formatUtcDate,
+  addUtcDays,
+} from '../../../shared/date-utils.js';
 
 // ---------------------------------------------------------------------------
 // InMemoryCache
@@ -134,7 +122,7 @@ export class InMemoryCache implements SportsDataProvider {
     if (hasNone) {
       const now = this.clock();
       effectiveFrom = now;
-      effectiveTo = addDays(now, 7);
+      effectiveTo = addUtcDays(now, 7);
     } else {
       // hasBoth : utiliser exactement les bornes fournies.
       effectiveFrom = fromDate as Date;
