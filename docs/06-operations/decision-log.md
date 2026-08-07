@@ -416,3 +416,58 @@ La prochaine autorisation éventuelle du Fondateur portera uniquement sur la pro
 
 
 Sont strictement exclus : SQLite, MatchRepository, ATHENA_PERSISTENCE, persistance, rétention, historisation, Sportmonks, nouveaux fournisseurs, compétitions, endpoints, authentification, UI, cotes, retry, backoff, cloud, SaaS, OpenTelemetry, suppression des erreurs applicatives orphelines, implémentation de getCompetitions/getMatchDetails, et validation Phase 2.9 Niveau 2.
+
+---
+
+## DEC-012 — Production documentaire détaillée de la Phase 3.1
+
+- **Date :** 2026-08-06
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Référence :** `d39757f5bb6aeb74d8dea58fd7633a5c5e49544e`
+
+### DEC-012.1 — Autorisation
+
+Le cadrage documentaire de la Phase 3.1 (fusionné via PR #14, commit `d39757f5bb6aeb74d8dea58fd7633a5c5e49544e`) est approuvé par le Fondateur. La production documentaire détaillée des spécifications UX/UI est autorisée. Aucune implémentation frontend n'est autorisée. Aucun choix de framework ou de bibliothèque UI n'est autorisé.
+
+### DEC-012.2 — Périmètre de l'expérience
+
+L'expérience du prototype est limitée à la consultation en lecture seule. Elle couvre l'état de santé de l'application (`GET /health`) et la liste des matchs programmés (`GET /competitions/:code/matches`). La seule compétition réelle actuellement prise en charge est `FL1` (Ligue 1). Il n'y a aucun détail de match, aucun compte utilisateur, aucune offre commerciale, aucune prédiction, aucune cote et aucune fonctionnalité de pari dans le périmètre du prototype.
+
+### DEC-012.3 — États d'interface
+
+L'interface doit représenter exactement les états suivants, sans en inventer d'autres :
+
+```text
+HTTP 200 avec matchs
+HTTP 200 avec tableau vide
+HTTP 404 — COMPETITION_NOT_AVAILABLE
+HTTP 429 — PROVIDER_RATE_LIMIT
+HTTP 503 — PROVIDER_UNAVAILABLE
+Réseau local indisponible
+Service de santé indisponible
+```
+
+### DEC-012.4 — Accessibilité et responsive
+
+L'objectif d'accessibilité documentaire minimal est WCAG 2.1 niveau AA. La conception est mobile-first. Les références de travail responsive sont 360, 768 et 1280 px. La navigation clavier future et le focus visible sont requis. La taille de cible tactile minimale est de 44 × 44 px. Tout contenu transmis par couleur est doublé par un texte ou une forme. La réduction du mouvement (`prefers-reduced-motion`) sera respectée à l'implémentation.
+
+### DEC-012.5 — Design System
+
+La taxonomie de tokens documentaire est autorisée (couleurs sémantiques, typographie, espacement, rayons, élévation, mouvement). L'anatomie documentaire des composants est autorisée. Les valeurs de marque ne sont pas finalisées. Aucune police, palette, bibliothèque ou technologie n'est choisie. Les décisions visuelles finales sont soumises à arbitrage futur du Fondateur.
+
+### DEC-012.6 — Questions ouvertes
+
+Les questions `OQ-001`, `OQ-002`, `OQ-004` et `OQ-005` restent ouvertes. `OQ-003` reste partiellement résolue (DEC-002/DEC-006). `OQ-006` reste une décision conditionnelle (DEC-001/DEC-005). L'emploi du français dans les wireframes ne résout pas `OQ-004`. Aucune question ne peut être résolue arbitrairement.
+
+### DEC-012.7 — Wireframes
+
+Seuls les wireframes basse fidélité sont autorisés. Les formats autorisés sont Markdown, Mermaid et ASCII. Aucune image binaire, maquette haute fidélité, export graphique ou prototype exécutable n'est produit. Aucune fonction non supportée par l'API actuelle ne peut être représentée. Aucune page de détail de match n'est autorisée.
+
+### DEC-012.8 — Interdictions
+
+Sont interdits dans le cadre de la Phase 3.1 : tout code frontend, tout projet frontend, tout framework (React, Vue, Svelte, Angular, etc.), toute bibliothèque UI (Tailwind, Bootstrap, Material UI, Shadcn, etc.), toute connexion UI/API, toute modification backend, toute dépendance supplémentaire, toute authentification, tout compte, tout paiement, toute prédiction, toute cote, tout pari, tout déploiement, tout analytics, toute collecte de données personnelles.
+
+### DEC-012.9 — Prochaine décision
+
+La prochaine décision éventuelle devra porter sur la validation des spécifications Phase 3.1, l'arbitrage des choix visuels encore ouverts (direction visuelle, palette, typographie, iconographie) et l'éventuel cadrage technologique frontend. Elle ne portera pas sur une implémentation automatique.
