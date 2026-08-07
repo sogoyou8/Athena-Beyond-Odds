@@ -521,3 +521,65 @@ Cette décision n'autorise aucune écriture de code frontend (aucun fichier HTML
 ### DEC-013.9 — Prochaine autorisation
 
 La prochaine décision pourra porter uniquement sur le cadrage d'implémentation frontend (structure exacte des fichiers, stratégie de compilation TypeScript client, service d'assets par Express, harnais de tests d'interface et critères d'acceptation). Elle ne constitue pas une autorisation automatique de coder.
+
+---
+
+## DEC-014 — Cadrage de l'implémentation frontend Phase 3.1
+
+- **Date :** 2026-08-07
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Référence :** `88184110dbff27d695728900c0c2635bd8c7d956`
+
+### DEC-014.1 — Autorisation
+
+Le cadrage documentaire de l'implémentation frontend (PR #17) est autorisé et approuvé par le Fondateur. Il s'agit d'une spécification exclusivement documentaire. Aucun code frontend, aucune modification d'Express et aucune installation de dépendances ne sont autorisés par cette décision.
+
+### DEC-014.2 — Périmètre de la première tranche d'implémentation
+
+La première tranche d'implémentation frontend couvrira une vue principale unique en lecture seule consommant les deux endpoints existants (`GET /health` et `GET /competitions/:code/matches`) pour la compétition Ligue 1 (`FL1`). Sont exclus : détail de match, compte utilisateur, authentification, plans commerciaux, paiement, MFA, prédictions, cotes, paris, classements, historique, favoris et notifications.
+
+### DEC-014.3 — Structure de fichiers future approuvée
+
+La structure future proposée (`src/frontend/public/index.html`, `src/frontend/styles/main.css`, `src/frontend/ts/`, `scripts/copy-assets.js`, `dist/public/`) est approuvée pour une future autorisation d'implémentation. *Mention obligatoire : STRUCTURE APPROUVÉE POUR FUTURE IMPLÉMENTATION — FICHIERS NON CRÉÉS PAR CETTE PR.*
+
+### DEC-014.4 — Stratégie de build et d'assets
+
+La stratégie de compilation TypeScript client via une configuration dédiée (`tsconfig.client.json` réutilisant `tsc` déjà installé) et la copie des assets via un script Node.js natif (`scripts/copy-assets.js`) est approuvée. Elle garantit 0 nouvelle dépendance npm et un build 100% reproductible sans bundler supplémentaire.
+
+### DEC-014.5 — Service Same-Origin avec Express
+
+La stratégie de service same-origin via l'ajout d'un middleware statique Express (`express.static('dist/public')`) dans `src/app.ts` est approuvée. Aucun asset n'est servi par cette PR documentaire et aucun CORS n'est requis pour le fonctionnement nominal.
+
+### DEC-014.6 — Modèle d'état client
+
+Le modèle d'état client explicite (union `initial`, `loading`, `matches`, `empty`, `competitionUnavailable`, `rateLimited`, `providerUnavailable`, `networkUnavailable`, `healthUnavailable`) est approuvé sans nécessiter de framework ni de gestionnaire d'état global.
+
+### DEC-014.7 — Sécurité et requêtes réseau
+
+Toutes les requêtes client utiliseront des URLs relatives Same-Origin (`/health`, `/competitions/FL1/matches`). Aucun secret, aucune clé API (`FOOTBALL_DATA_API_KEY`) et aucun header d'authentification ne seront exposés dans le client. Aucun polling automatique ni retry automatique ne sera mis en place.
+
+### DEC-014.8 — Thème et apparence
+
+L'apparence s'adaptera initialement à la préférence système (`prefers-color-scheme`) avec option de bascule manuelle en session. Aucune persistance entre sessions (localStorage, cookie, serveur) n'est décidée.
+
+### DEC-014.9 — Plan de tests
+
+L'implémentation future devra inclure des tests unitaires/DOM pour le client et des tests d'intégration Express pour le service des assets statiques. La totalité des 146 tests backend existants devra continuer de réussir sans aucune désactivation de test.
+
+**Nuance sur les dépendances de test :**
+
+- Les tests d'intégration Express pour le service des assets statiques sont réalisables sans nouvelle dépendance (`supertest` est déjà présent). ✅
+- Les tests DOM automatisés du client nécessiteront un environnement DOM. L'environnement Vitest actuel est configuré en `environment: 'node'`. Les librairies `jsdom`, `happy-dom` et `@vitest/browser` sont **absentes** du projet. Une `devDependency` de test DOM devra faire l'objet d'un arbitrage explicite lors de la prochaine autorisation d'implémentation. La déclaration "0 nouvelle dépendance npm" vaut uniquement pour le **runtime** et le **service statique**.
+
+### DEC-014.10 — Valeurs visuelles conservées ouvertes
+
+Les valeurs graphiques détaillées (palette hexadécimale, fontes exactes, tailles/poids, pixels de bordures et ombres, logo) restent non décidées et seront définies sous forme de variables CSS lors de l'intégration visuelle.
+
+### DEC-014.11 — Interdictions strictes
+
+Sont strictement interdits : tout code frontend exécutable, toute modification backend, toute nouvelle dépendance npm, tout framework (React, Vue, Svelte, Next.js), toute bibliothèque UI, tout routeur client, tout state manager, tout bundler supplémentaire et tout moteur de templates serveur additionnel.
+
+### DEC-014.12 — Prochaine autorisation
+
+La prochaine décision pourra porter sur l'ouverture d'une première tranche d'implémentation frontend minimale. Cette future autorisation devra préciser explicitement les fichiers créables, les fichiers modifiables, les scripts, la configuration TypeScript client, les dépendances de développement éventuellement requises pour les tests DOM et les critères de réception. Aucun code n'est autorisé automatiquement par `DEC-014`.
