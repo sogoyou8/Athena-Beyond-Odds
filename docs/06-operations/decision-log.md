@@ -583,3 +583,133 @@ Sont strictement interdits : tout code frontend exécutable, toute modification 
 ### DEC-014.12 — Prochaine autorisation
 
 La prochaine décision pourra porter sur l'ouverture d'une première tranche d'implémentation frontend minimale. Cette future autorisation devra préciser explicitement les fichiers créables, les fichiers modifiables, les scripts, la configuration TypeScript client, les dépendances de développement éventuellement requises pour les tests DOM et les critères de réception. Aucun code n'est autorisé automatiquement par `DEC-014`.
+
+---
+
+## DEC-015 — Autorisation d'implémentation de la première tranche frontend Phase 3.1
+
+- **Date :** 2026-08-07
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Référence :** `2069e9a4acb4f5a32e888172f8450227d7e95712`
+
+### DEC-015.1 — Autorisation officielle
+
+La réalisation de la première tranche d'implémentation frontend minimale pour Athena: Beyond Odds est officiellement autorisée aux conditions strictes définies ci-après. Cette autorisation constitue un mandat d'implémentation exclusif pour les seuls 11 nouveaux fichiers à créer et 4 fichiers existants à modifier listés dans `DEC-015.2` et `DEC-015.3`.
+
+### DEC-015.2 — Fichiers nouveaux autorisés à la création (11 fichiers)
+
+Seuls les 11 fichiers suivants sont autorisés à la création dans le dépôt Git :
+
+1. `src/frontend/public/index.html` (Squelette HTML5 sémantique)
+2. `src/frontend/styles/main.css` (Styles CSS natifs et variables tokens)
+3. `src/frontend/ts/main.ts` (Point d'entrée TypeScript client)
+4. `src/frontend/ts/api-client.ts` (Client Fetch Same-Origin `/health` et `/competitions/FL1/matches`)
+5. `src/frontend/ts/render.ts` (Fonctions de rendu DOM textuel sécurisé via `textContent`)
+6. `tsconfig.client.json` (Configuration TypeScript client dédiée)
+7. `scripts/copy-assets.js` (Script Node.js natif de nettoyage et de copie des assets)
+8. `tests/frontend/api-client.test.ts` (Tests unitaires du client Fetch avec mocks)
+9. `tests/frontend/render.test.ts` (Tests unitaires DOM de `render.ts` avec `@vitest-environment happy-dom`)
+10. `tests/frontend/main.test.ts` (Tests d'orchestration client avec `@vitest-environment happy-dom`)
+11. `tests/integration/static-serving.test.ts` (Tests d'intégration Express du service statique via Supertest et fixture temporaire)
+
+### DEC-015.3 — Fichiers existants autorisés à la modification (4 fichiers)
+
+Seuls les 4 fichiers existants suivants sont autorisés à la modification :
+
+1. `src/app.ts` (Ajout de `CreateAppOptions` et montage de `express.static(publicPath)` après les routeurs API `/health` et `/competitions/:code/matches`)
+2. `tsconfig.json` (Ajout de `"src/frontend/**/*"` dans le tableau `exclude` du backend)
+3. `package.json` (Ajout des scripts de build client et de `"happy-dom": "16.0.0"` dans `devDependencies`)
+4. `package-lock.json` (Mise à jour automatique suite à `npm install --save-dev --save-exact happy-dom@16.0.0`)
+
+### DEC-015.4 — Autorisation explicite de devDependency
+
+La seule nouvelle dépendance npm autorisée dans le projet est :
+
+- **Package :** `happy-dom`
+- **Clef :** `devDependencies` uniquement
+- **Version exacte figée :** `16.0.0`
+- **Commande exacte autorisée :** `npm install --save-dev --save-exact happy-dom@16.0.0`
+- **Restriction :** Utilisation exclusive sous l'entête `// @vitest-environment happy-dom` dans les fichiers de test client. Aucun import de `happy-dom` n'est autorisé sous `src/`.
+
+### DEC-015.5 — Séquence et scripts de build autorisés
+
+Les scripts npm suivants sont approuvés pour intégration dans `package.json` :
+
+- `"build:clean": "node scripts/copy-assets.js clean"`
+- `"build:server": "tsc"`
+- `"build:client": "tsc -p tsconfig.client.json"`
+- `"build:assets": "node scripts/copy-assets.js copy"`
+- `"build": "npm run build:clean && npm run build:server && npm run build:client && npm run build:assets"`
+
+Le script `scripts/copy-assets.js` devra utiliser exclusivement les modules Node.js natifs (`node:fs`, `node:path`, `node:url`) et déduire la racine du projet à partir d' `import.meta.url` de manière indépendante du répertoire de travail (`process.cwd()`).
+
+### DEC-015.6 — Configuration TypeScript client autorisée (`tsconfig.client.json`)
+
+La configuration client dédiée devra spécifier exactement :
+
+- `module`: `"NodeNext"`
+- `moduleResolution`: `"NodeNext"`
+- `target`: `"ES2022"`
+- `lib`: `["DOM", "ES2022"]`
+- `types`: `[]`
+- `rootDir`: `"./src/frontend/ts"`
+- `outDir`: `"./dist/public/js"`
+- `strict`: `true`
+- `noEmitOnError`: `true`
+- `declaration`: `false`
+- `sourceMap`: `false`
+- `include`: `["src/frontend/ts/**/*"]`
+
+Toutes les importations relatives inter-modules dans `src/frontend/ts/` utiliseront obligatoirement l'extension `.js` (ex: `import { fetchScheduledMatches } from './api-client.js';`).
+
+### DEC-015.7 — Service Same-Origin Express et Ordre des Middlewares
+
+La fonction `createApp` dans `src/app.ts` sera étendue de manière 100% rétrocompatible :
+
+```typescript
+export interface CreateAppOptions {
+  publicPath?: string;
+}
+
+export function createApp(
+  customProvider?: SportsDataProvider,
+  options: CreateAppOptions = {}
+): Express
+```
+
+L'ordre des middlewares dans `createApp` est strictement imposé comme suit :
+
+1. `app.use(express.json())`
+2. `app.use('/', createHealthRouter())`
+3. `app.use('/', createMatchesRouter(provider))`
+4. `app.use(express.static(publicPath))`
+
+La résolution de `publicPath` par défaut utilisera `fileURLToPath(import.meta.url)` pour remonter à la racine du dépôt et cibler `<repo>/dist/public` de manière 100% indépendante du répertoire de travail (`process.cwd()`).
+
+### DEC-015.8 — Stratégie des tests d'intégration statique
+
+Le fichier `tests/integration/static-serving.test.ts` utilisera des répertoires temporaires isolés (`fs.mkdtempSync`) injectés via `createApp(undefined, { publicPath: tempDir })` et testés par Supertest (`supertest`). Aucun test ne dépendra d'un build préalable résiduel ni ne lancera de sous-processus `execSync`.
+
+### DEC-015.9 — Thème, Apparence et Valeurs CSS
+
+L'apparence s'adaptera initialement à la préférence système (`prefers-color-scheme`) avec option de bascule manuelle en session. Le CSS natif utilisera exclusivement des variables tokens neutres techniques provisoires (ex: `--color-surface-base`, `--font-family-base`). La palette hexadécimale de marque finale, les typographies commerciales dédiées, le logo officiel et les icônes propriétaires restent strictly non décidés et interdits.
+
+### DEC-015.10 — Interdictions strictes de la première tranche
+
+Sont strictement interdits lors de la réalisation de la tranche :
+
+- Tout framework JS (React, Vue, Svelte, Angular, Next.js)
+- Toute bibliothèque UI (Tailwind, Bootstrap, Material UI)
+- Tout routeur client ou gestionnaire d'état global
+- Tout bundler supplémentaire (Vite, Webpack, Rollup, Parcel)
+- Tout moteur de templates serveur additionnel
+- Tout appel réseau direct vers `football-data.org` depuis le navigateur
+- Toute exposition de clé API ou secret dans le code client
+- Tout polling automatique ou retry automatique
+- Toute modification des contrats d'API backend existants
+- Toute résolution arbitraire des questions ouvertes `OQ-001` à `OQ-006`
+
+### DEC-015.11 — Prochaine étape
+
+La réalisation de la première tranche frontend d'Athena s'effectuera dans une Pull Request dédiée basée sur `architecture/phase-2-technical-design`. À l'issue de l'implémentation, la totalité des 146 tests backend existants ainsi que les nouveaux tests frontend (unitaires et d'intégration statique) devront réussir sans aucune désactivation de test. Aucune seconde tranche frontend ne pourra être entamée sans une nouvelle décision documentaire.
