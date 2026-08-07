@@ -567,6 +567,11 @@ L'apparence s'adaptera initialement à la préférence système (`prefers-color-
 
 L'implémentation future devra inclure des tests unitaires/DOM pour le client et des tests d'intégration Express pour le service des assets statiques. La totalité des 146 tests backend existants devra continuer de réussir sans aucune désactivation de test.
 
+**Nuance sur les dépendances de test :**
+
+- Les tests d'intégration Express pour le service des assets statiques sont réalisables sans nouvelle dépendance (`supertest` est déjà présent). ✅
+- Les tests DOM automatisés du client nécessiteront un environnement DOM. L'environnement Vitest actuel est configuré en `environment: 'node'`. Les librairies `jsdom`, `happy-dom` et `@vitest/browser` sont **absentes** du projet. Une `devDependency` de test DOM devra faire l'objet d'un arbitrage explicite lors de la prochaine autorisation d'implémentation. La déclaration "0 nouvelle dépendance npm" vaut uniquement pour le **runtime** et le **service statique**.
+
 ### DEC-014.10 — Valeurs visuelles conservées ouvertes
 
 Les valeurs graphiques détaillées (palette hexadécimale, fontes exactes, tailles/poids, pixels de bordures et ombres, logo) restent non décidées et seront définies sous forme de variables CSS lors de l'intégration visuelle.

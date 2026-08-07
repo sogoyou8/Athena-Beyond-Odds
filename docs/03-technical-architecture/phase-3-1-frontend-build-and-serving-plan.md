@@ -168,10 +168,21 @@ Ce workflow garantit un build 100% reproductible sans aucune nouvelle dépendanc
 ## 8. Bilan des dépendances
 
 ```text
-Nombre de nouvelles dépendances npm requises : 0
+Nouvelles dépendances npm de production (runtime) : 0
+Nouvelles dépendances npm de développement (devDependencies) : à arbitrer
 ```
 
-Toutes les opérations de build, compilation client et service statique sont réalisées avec la pile existante (`typescript ^5.7.2`, `express ^4.21.2`, `node.js` natif).
+### Runtime et build
+
+Toutes les opérations de build, compilation client et service statique sont réalisées avec la pile existante (`typescript ^5.7.2`, `express ^4.21.2`, `node.js` natif). **0 nouvelle dépendance npm de production.**
+
+### Tests DOM — Arbitrage futur requis
+
+Les tests d'intégration Express pour le service des assets statiques sont réalisables sans dépendance supplémentaire (`supertest ^7.2.2` est déjà présent).
+
+En revanche, les tests DOM automatisés du code client TypeScript nécessiteront un environnement DOM simulé. L'environnement Vitest actuel est configuré exclusivement en `environment: 'node'`. Les librairies DOM (`jsdom`, `happy-dom`, `@vitest/browser`) sont **absentes** du projet.
+
+L'ajout d'une `devDependency` de test DOM (ex: `jsdom` ou `happy-dom`) devra faire l'objet d'un **arbitrage explicite du Fondateur** lors de la prochaine autorisation d'implémentation. Aucune dépendance n'est installée par la présente mission documentaire.
 
 ---
 
