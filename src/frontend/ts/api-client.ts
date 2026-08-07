@@ -10,9 +10,16 @@ export interface TeamDTO {
   crestUrl: string | null;
 }
 
-export interface ScoreDTO {
+export interface ScorePeriodDTO {
   home: number | null;
   away: number | null;
+}
+
+export interface ScoreDTO {
+  halfTime: ScorePeriodDTO;
+  fullTime: ScorePeriodDTO;
+  extraTime?: ScorePeriodDTO;
+  penalties?: ScorePeriodDTO;
 }
 
 export interface MatchDTO {

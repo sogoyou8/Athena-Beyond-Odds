@@ -63,7 +63,10 @@ describe('AthenaApp Main Orchestration Unit Tests (happy-dom)', () => {
         status: 'SCHEDULED',
         homeTeam: { id: 't1', name: 'PSG', shortName: 'PSG', tla: 'PSG', crestUrl: null },
         awayTeam: { id: 't2', name: 'OM', shortName: 'OM', tla: 'OM', crestUrl: null },
-        score: { home: null, away: null },
+        score: {
+          halfTime: { home: null, away: null },
+          fullTime: { home: null, away: null },
+        },
       },
     ];
 

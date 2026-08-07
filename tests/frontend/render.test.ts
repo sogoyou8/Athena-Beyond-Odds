@@ -39,7 +39,10 @@ describe('Render DOM Unit Tests (happy-dom)', () => {
         status: 'SCHEDULED',
         homeTeam: { id: 't1', name: 'PSG', shortName: 'PSG', tla: 'PSG', crestUrl: null },
         awayTeam: { id: 't2', name: 'OM', shortName: 'OM', tla: 'OM', crestUrl: null },
-        score: { home: null, away: null },
+        score: {
+          halfTime: { home: null, away: null },
+          fullTime: { home: null, away: null },
+        },
       },
     ];
 
@@ -52,6 +55,47 @@ describe('Render DOM Unit Tests (happy-dom)', () => {
     expect(container.textContent).toContain('OM');
   });
 
+  it('doit rendre correctement les scores non joués (-) et joués sans jamais afficher undefined', () => {
+    const realContractMatches: MatchDTO[] = [
+      {
+        id: 'm-unplayed',
+        competitionId: 'FL1',
+        seasonId: '2025',
+        matchday: 1,
+        utcDate: '2026-08-15T20:00:00Z',
+        status: 'SCHEDULED',
+        homeTeam: { id: 't1', name: 'Lyon', shortName: 'Lyon', tla: 'OL', crestUrl: null },
+        awayTeam: { id: 't2', name: 'Lille', shortName: 'Lille', tla: 'LOSC', crestUrl: null },
+        score: {
+          halfTime: { home: null, away: null },
+          fullTime: { home: null, away: null },
+        },
+      },
+      {
+        id: 'm-played',
+        competitionId: 'FL1',
+        seasonId: '2025',
+        matchday: 1,
+        utcDate: '2026-08-15T18:00:00Z',
+        status: 'FINISHED',
+        homeTeam: { id: 't3', name: 'Monaco', shortName: 'Monaco', tla: 'ASM', crestUrl: null },
+        awayTeam: { id: 't4', name: 'Rennes', shortName: 'Rennes', tla: 'SRFC', crestUrl: null },
+        score: {
+          halfTime: { home: 1, away: 0 },
+          fullTime: { home: 2, away: 1 },
+        },
+      },
+    ];
+
+    renderUI(container, announcer, { status: 'matches', data: realContractMatches });
+
+    expect(container.textContent).not.toContain('undefined');
+    expect(container.textContent).not.toContain('[object Object]');
+    expect(container.textContent).toContain('Monaco');
+    expect(container.textContent).toContain('2');
+    expect(container.textContent).toContain('1');
+  });
+
   it('doit neutraliser les attaques XSS et insérer les données uniquement via textContent', () => {
     const maliciousMatch: MatchDTO = {
       id: 'm2',
@@ -62,7 +106,10 @@ describe('Render DOM Unit Tests (happy-dom)', () => {
       status: 'SCHEDULED',
       homeTeam: { id: 't3', name: '<img src=x onerror=alert(1)>', shortName: 'MALICIOUS', tla: 'XSS', crestUrl: null },
       awayTeam: { id: 't4', name: 'Nice', shortName: 'Nice', tla: 'OGC', crestUrl: null },
-      score: { home: null, away: null },
+      score: {
+        halfTime: { home: null, away: null },
+        fullTime: { home: null, away: null },
+      },
     };
 
     renderUI(container, announcer, { status: 'matches', data: [maliciousMatch] });

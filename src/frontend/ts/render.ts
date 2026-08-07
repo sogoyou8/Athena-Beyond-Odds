@@ -204,7 +204,7 @@ function createMatchCard(match: MatchDTO): HTMLElement {
   const homeName = document.createElement('span');
   homeName.textContent = match.homeTeam.name || match.homeTeam.shortName || match.homeTeam.tla || 'Équipe domicile';
   const homeScore = document.createElement('span');
-  homeScore.textContent = match.score.home !== null ? String(match.score.home) : '-';
+  homeScore.textContent = match.score?.fullTime?.home !== null && match.score?.fullTime?.home !== undefined ? String(match.score.fullTime.home) : '-';
   homeRow.append(homeName, homeScore);
 
   const awayRow = document.createElement('div');
@@ -212,7 +212,7 @@ function createMatchCard(match: MatchDTO): HTMLElement {
   const awayName = document.createElement('span');
   awayName.textContent = match.awayTeam.name || match.awayTeam.shortName || match.awayTeam.tla || 'Équipe extérieure';
   const awayScore = document.createElement('span');
-  awayScore.textContent = match.score.away !== null ? String(match.score.away) : '-';
+  awayScore.textContent = match.score?.fullTime?.away !== null && match.score?.fullTime?.away !== undefined ? String(match.score.fullTime.away) : '-';
   awayRow.append(awayName, awayScore);
 
   teams.append(homeRow, awayRow);
