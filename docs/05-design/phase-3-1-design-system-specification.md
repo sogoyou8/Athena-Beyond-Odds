@@ -368,6 +368,31 @@ Les décisions visuelles et technologiques suivantes restent **ouvertes et soumi
 
 ---
 
+## 8. Arbitrages du Fondateur — 2026-08-07
+
+À la suite de la consultation du Fondateur ABYSS le 2026-08-07, les arbitrages visuels suivants sont officiellement adoptés :
+
+| Axe d'arbitrage | Décision approuvée | Statut |
+|---|---|---|
+| **Direction visuelle** | Tableau de Bord Moderne (`Option 2`) | **Approuvée par le Fondateur** |
+| **Thème d'apparence** | Préférence système avec bascule manuelle (`Option C`) | **Approuvée par le Fondateur** |
+| **Densité d'information** | Équilibrée (`Option B`) | **Approuvée par le Fondateur** |
+| **Forme des composants** | Légèrement arrondie (`Option B` — `radius.medium`) | **Approuvée par le Fondateur** |
+| **Iconographie** | Fonctionnelle standard (`Option B`) | **Approuvée par le Fondateur** |
+| **Ton rédactionnel** | Clair, humain et transparent (`Option B`) | **Approuvée par le Fondateur** |
+
+### Éléments graphiques conservés comme non décidés
+
+Les éléments suivants ne sont **pas tranchés** et restent ouverts pour l'intégration visuelle future :
+
+- Palette de couleurs exacte et valeurs hexadécimales.
+- Famille typographique principale (`font-family`) et poids exacts.
+- Valeurs CSS graphiques exactes (pixels pour `border-radius` et `box-shadow`).
+- Source ou bibliothèque d'icônes vectorielles retenue.
+- Logo officiel et identité de marque détaillée.
+
+---
+
 ```text
 FONDATIONS DU DESIGN SYSTEM PHASE 3.1 SPÉCIFIÉES — VALEURS DE MARQUE ET TECHNOLOGIES ENCORE À ARBITRER
 ```

@@ -471,3 +471,53 @@ Sont interdits dans le cadre de la Phase 3.1 : tout code frontend, tout projet f
 ### DEC-012.9 — Prochaine décision
 
 La prochaine décision éventuelle devra porter sur la validation des spécifications Phase 3.1, l'arbitrage des choix visuels encore ouverts (direction visuelle, palette, typographie, iconographie) et l'éventuel cadrage technologique frontend. Elle ne portera pas sur une implémentation automatique.
+
+---
+
+## DEC-013 — Arbitrages visuels et sélection technologique frontend
+
+- **Date :** 2026-08-07
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Référence :** `5723698f82dcd9298a1f9e12ba00ddd208de7610`
+
+### DEC-013.1 — Direction visuelle
+
+La direction visuelle « Tableau de Bord Moderne » (`Option 2`) est approuvée par le Fondateur. Elle privilégie une sobriété professionnelle, des surfaces structurées avec surélévation subtile (`surface.elevated`), une hiérarchie typographique nette et une priorité absolue à la lisibilité et à l'accessibilité mobile (Mobile-First). Sont proscrits : toute esthétique casino ou de pari, toute décoration gratuite et toute surcharge visuelle.
+
+### DEC-013.2 — Arbitrages visuels complémentaires
+
+Les arbitrages visuels autonomes suivants sont arrêtés :
+- **Apparence :** Support du mode clair et du mode sombre, initialisé sur la préférence système (`prefers-color-scheme`) avec option de bascule manuelle.
+- **Densité :** Équilibrée (`Option B`), optimisée pour les références compactes de 360 px et fluides jusqu'à 1280 px.
+- **Forme :** Légèrement arrondie (`Option B` — `radius.medium`).
+- **Iconographie :** Fonctionnelle standard (`Option B` — icônes discrètes et informatives).
+- **Ton rédactionnel :** Clair, humain et transparent (`Option B` — messages factuels sans jargon HTTP).
+
+### DEC-013.3 — Valeurs graphiques restant ouvertes
+
+Les valeurs graphiques et de marque suivantes restent non décidées et soumises à intégration visuelle ultérieure : palette de couleurs exacte et valeurs hexadécimales, famille typographique (`font-family`), poids et tailles exacts, valeurs CSS graphiques en pixels (`border-radius`, `box-shadow`), source vectorielle d'icônes, logo officiel et charte graphique détaillée.
+
+### DEC-013.4 — Technologie frontend retenue
+
+La sélection technologique frontend est arrêtée sur : HTML sémantique + CSS natif + TypeScript client minimal servi par Express (`Option 1`). L'architecture privilégie l'intégration Same-Origin avec l'application serveur Express Phase 2 pour éliminer les surcoûts d'infrastructure, le CORS et la complexité de déploiement.
+
+### DEC-013.5 — Absence de framework et d'outils complexes
+
+Aucun framework frontend (React, Vue, Angular, Svelte), meta-framework SSR (Next.js, Nuxt), bibliothèque de composants UI (Tailwind, Bootstrap, Material UI, Shadcn), routeur client, gestionnaire d'état global, bundler frontend supplémentaire ni moteur de templates serveur additionnel n'est requis ni approuvé pour l'implémentation initiale du prototype.
+
+### DEC-013.6 — Préservation de l'architecture backend
+
+Cette décision ne modifie aucune API HTTP existante (`GET /health`, `GET /competitions/:code/matches`), aucun endpoint, aucun domaine ni aucun port. Elle n'autorise pas encore le serveur Express à servir des assets statiques frontend. Toute modification d'Express nécessaire au service d'assets devra apparaître explicitement dans un cadrage d'implémentation ultérieur.
+
+### DEC-013.7 — Preservations des questions ouvertes
+
+Les questions ouvertes `OQ-001`, `OQ-002`, `OQ-004` et `OQ-005` restent ouvertes. `OQ-003` reste partiellement résolue et `OQ-006` reste une décision conditionnelle. Le ton rédactionnel clair et l'emploi du français dans les spécifications ne résolvent pas `OQ-004` (*Langue(s) initiale(s) du MVP*).
+
+### DEC-013.8 — Interdiction d'implémentation
+
+Cette décision n'autorise aucune écriture de code frontend (aucun fichier HTML/CSS/TS client exécutable), aucune modification du serveur Express, aucune installation de dépendances (`npm install`), aucun framework, aucun déploiement, aucun appel réseau réel et aucune nouvelle fonctionnalité métier.
+
+### DEC-013.9 — Prochaine autorisation
+
+La prochaine décision pourra porter uniquement sur le cadrage d'implémentation frontend (structure exacte des fichiers, stratégie de compilation TypeScript client, service d'assets par Express, harnais de tests d'interface et critères d'acceptation). Elle ne constitue pas une autorisation automatique de coder.
