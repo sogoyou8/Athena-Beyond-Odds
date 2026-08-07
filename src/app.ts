@@ -11,6 +11,8 @@
  */
 
 import express, { Express } from 'express';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { createHealthRouter } from './interfaces/http/health-route.js';
 import { createMatchesRouter } from './interfaces/http/matches-route.js';
 import { SportsDataProvider } from './application/ports/sports-data-provider.js';
@@ -18,6 +20,14 @@ import { InMemorySportsDataProvider } from './infrastructure/providers/in-memory
 import { FootballDataOrgAdapter } from './infrastructure/providers/football-data-org/football-data-org-adapter.js';
 import { InMemoryCache } from './infrastructure/cache/memory/in-memory-cache.js';
 import { resolveTelemetryObserver } from './shared/observability/telemetry.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const defaultPublicPath = resolve(__dirname, '..', 'dist', 'public');
+
+export interface CreateAppOptions {
+  publicPath?: string;
+}
 
 export function resolveSportsDataProvider(): SportsDataProvider {
   const telemetryObserver = resolveTelemetryObserver(process.env['ATHENA_TELEMETRY']);
@@ -43,7 +53,10 @@ export function resolveSportsDataProvider(): SportsDataProvider {
   );
 }
 
-export function createApp(customProvider?: SportsDataProvider): Express {
+export function createApp(
+  customProvider?: SportsDataProvider,
+  options: CreateAppOptions = {}
+): Express {
   const app = express();
   app.use(express.json());
 
@@ -52,5 +65,9 @@ export function createApp(customProvider?: SportsDataProvider): Express {
   app.use('/', createHealthRouter());
   app.use('/', createMatchesRouter(provider));
 
+  const publicPath = options.publicPath ?? defaultPublicPath;
+  app.use(express.static(publicPath));
+
   return app;
 }
+
