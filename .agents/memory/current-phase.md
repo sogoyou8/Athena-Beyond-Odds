@@ -1,17 +1,34 @@
-# Phase Actuelle : Phase 0 — Foundation
+# Current Phase
 
-**Statut :** en cours de validation
+> **Phase actuelle :** Phase 1 — Product Definition  
+> **Statut :** En cours
 
-## Éléments terminés
-- Vision & Identité dans Notion
-- Product Athena dans Notion
-- Product Blueprint dans Notion
-- Import documentaire (en cours d'exécution)
+## Phase précédente
 
-## Éléments restants
-- Vérifier le dépôt (structure, fichiers requis)
-- Valider les règles Antigravity et la mémoire du projet
-- Valider les documents importés
-- Effectuer le premier commit de fondation après approbation
-- Effectuer le push vers GitHub après approbation finale
-- Clôturer la Phase 0
+Phase 0 — Foundation
+
+Statut :
+
+Validée et publiée sur `origin/main`.
+
+Commit :
+
+`2239e6b`
+
+## Objectifs actuels
+
+- rédiger le Product Requirements Document ;
+- définir les personas ;
+- formaliser les User Stories ;
+- définir les fonctionnalités ;
+- prioriser le MVP ;
+- définir les critères d'acceptation ;
+- valider la portée produit avant l'architecture technique.
+
+## Restrictions
+
+- aucun code applicatif ;
+- aucune stack technique définitive ;
+- aucune architecture technique détaillée ;
+- aucune intégration fournisseur définitive ;
+- aucune fonctionnalité inventée hors documentation officielle.

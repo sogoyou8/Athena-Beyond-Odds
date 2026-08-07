@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Athena — Beyond Odds</title>
+  <link rel="stylesheet" href="/main.css">
+</head>
+<body>
+  <div id="app" class="app-container">
+    <header class="app-header">
+      <div class="header-content">
+        <h1 class="app-title">Athena</h1>
+        <div class="header-actions">
+          <div id="service-status" class="service-status" aria-label="Statut du service"></div>
+          <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-label="Changer le thème (clair/sombre)" aria-pressed="false">
+            <span class="theme-toggle-icon" aria-hidden="true">🌙</span>
+            <span class="theme-toggle-text">Thème</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <section class="competition-section" aria-labelledby="competition-title">
+        <header class="competition-header">
+          <h2 id="competition-title" class="competition-title">Ligue 1 (FL1)</h2>
+          <p class="competition-subtitle">Calendrier des matchs</p>
+        </header>
+
+        <div id="status-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+        <div id="main-content" class="main-content">
+          <!-- Le contenu dynamique sera rendu ici via render.ts -->
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>Athena: Beyond Odds — Prototype Phase 3.1</p>
+    </footer>
+  </div>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>
