@@ -582,4 +582,4 @@ Sont strictement interdits : tout code frontend exécutable, toute modification 
 
 ### DEC-014.12 — Prochaine autorisation
 
-La prochaine décision pourra porter sur l'ouverture d'une première tranche d'implémentation frontend minimale. Cette future autorisation devra préciser explicitement les fichiers créables, les fichiers modifiables, les scripts, la configuration TypeScript client et les critères de réception. Aucun code n'est autorisé automatiquement par `DEC-014`.
+La prochaine décision pourra porter sur l'ouverture d'une première tranche d'implémentation frontend minimale. Cette future autorisation devra préciser explicitement les fichiers créables, les fichiers modifiables, les scripts, la configuration TypeScript client, les dépendances de développement éventuellement requises pour les tests DOM et les critères de réception. Aucun code n'est autorisé automatiquement par `DEC-014`.
