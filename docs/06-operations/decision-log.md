@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 1.5
+> **Version :** 1.6
 
 # Decision Log
 
@@ -766,3 +766,48 @@ Phase 3.2 peut faire l'objet d'un **cadrage documentaire séparé**.
 - Phase 2.9 Niveau 2 : non autorisée avant le 2026-08-15
 - Correction A-001 : non imposée en Phase 3.1
 - Correction A-002 : non imposée en Phase 3.1
+
+---
+
+## DEC-017 — Cadrage Phase 3.2 — Match Center analytique initial
+
+- **Date :** 2026-08-08
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Référence :** `4305e0e01517dc8e68f892fd2e128322b1607564`
+
+### DEC-017.1 — Orientation et objectif de la Phase 3.2
+
+La Phase 3.2 marque la première étape documentaire de la roadmap **Phase 3 — Features**. Elle vise à faire évoluer la vue initiale read-only d'Athena vers un **Match Center analytique initial**. Son objectif est de reconnecter le produit à sa vision d'intelligence sportive en fournissant les premières informations analytiques exploitables sans transformer la plateforme en simple outil promotionnel de paris.
+
+### DEC-017.2 — Limite avec la Phase 4 (Decision Engine)
+
+La Phase 3.2 **ne constitue pas** la livraison du Decision Engine complet ni d'un moteur de conseil en paris.
+Sont **strictement proscrits** de la Phase 3.2 :
+- Toute recommandation automatique de pari ou ordre de parier.
+- Tout score de confiance décisionnel ou calcul de mise de Kelly.
+- Tout moteur de Value Betting, d'arbitrage bookmaker ou de prédiction probabiliste complet.
+- Tout modèle de Machine Learning ou d'apprentissage automatique.
+
+### DEC-017.3 — Inventaire des features et règle de sélection progressif
+
+Les features analytiques candidates issues du PRD (Ranking, Forme, H2H, Fatigue, Travel, Momentum, CLV, Expected Value, etc.) ne seront **pas** implémentées simultanément. Le cadrage documentaire de la Phase 3.2 devra déterminer la plus petite tranche fonctionnelle cohérente (ex: Forme récente et confrontations H2H basiques) basée uniquement sur la disponibilité réelle des données.
+
+### DEC-017.4 — Différé de l'identité visuelle finale
+
+L'identité graphique et visuelle définitive d'Athena (charte, hex exacts, typographies dédiées, logo, ombres et rayons exacts) demeure **volontairement différée** et ne bloque pas le cadrage analytique de la Phase 3.2. La direction artistique conservera comme repère le professionnalisme, la sobriété, la lisibilité et l'univers conceptuel Athena (cosmos/sanctuaire) sans copier les plateformes de jeux d'argent.
+
+### DEC-017.5 — Phase 2.9 Niveau 2 non bloquante
+
+Le rejeu de la validation Phase 2.9 Niveau 2 (test avec clé API réelle football-data.org) demeure **non bloquant** pour l'avancement documentaire de la Phase 3.2. Il ne sera exécuté qu'après le 15 août 2026 lorsqu'une tranche d'implémentation nécessitera de valider le comportement avec le provider réel.
+
+### DEC-017.6 — Anomalies et Questions Ouvertes
+
+- **Anomalies A-001 et A-002 :** Conservées dans le backlog technique sous statut `MINEURE — OUVERTE — NON BLOQUANTE`. Elles ne sont pas incluses dans le périmètre fonctionnel de la Phase 3.2.
+- **Anomalie A-003 :** Confirmée `CORRIGÉE ET FERMÉE`.
+- **Questions Ouvertes (OQ-001 à OQ-006) :** Leurs statuts restent strictement inchangés. Aucune résolution n'est sous-entendue par ce cadrage.
+
+### DEC-017.7 — Autorisation documentaire exclusive
+
+La présente décision autorise le **cadrage documentaire** de la Phase 3.2 et la rédaction de sa spécification fonctionnelle d'analyse.
+Elle **N'AUTORISE AUCUNE IMPLÉMENTATION DE CODE** (ni frontend, ni backend, ni endpoint, ni provider, ni dépendance). Toute écriture de code nécessitera une décision dédiée ultérieure.
