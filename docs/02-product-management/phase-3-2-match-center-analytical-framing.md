@@ -1,12 +1,12 @@
 # Cadrage officiel — Phase 3.2 : Match Center analytique initial
 
-**Projet :** Athena Beyond Odds  
-**Phase :** 3.2  
-**Date :** 2026-08-08  
-**Responsable :** Fondateur ABYSS  
-**Statut :** Approuvé — cadrage documentaire uniquement, implémentation non autorisée  
-**Branche de base :** `architecture/phase-2-technical-design`  
-**Commit de référence :** `4305e0e01517dc8e68f892fd2e128322b1607564`  
+- **Projet :** Athena Beyond Odds
+- **Phase :** 3.2
+- **Date :** 2026-08-08
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvé — cadrage documentaire uniquement, implémentation non autorisée
+- **Branche de base :** `architecture/phase-2-technical-design`
+- **Commit de référence :** `4305e0e01517dc8e68f892fd2e128322b1607564`
 
 ---
 
