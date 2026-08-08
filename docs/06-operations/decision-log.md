@@ -1,5 +1,5 @@
-> **Statut :** Mis ├á jour
-> **Version :** 1.4
+> **Statut :** Mis à jour
+> **Version :** 1.5
 
 # Decision Log
 
@@ -713,3 +713,56 @@ Sont strictement interdits lors de la réalisation de la tranche :
 ### DEC-015.11 — Prochaine étape
 
 La réalisation de la première tranche frontend d'Athena s'effectuera dans une Pull Request dédiée basée sur `architecture/phase-2-technical-design`. À l'issue de l'implémentation, la totalité des 146 tests backend existants ainsi que les nouveaux tests frontend (unitaires et d'intégration statique) devront réussir sans aucune désactivation de test. Aucune seconde tranche frontend ne pourra être entamée sans une nouvelle décision documentaire.
+
+---
+
+## DEC-016 — Clôture Phase 3.1 — Fondations UX/UI et première tranche frontend
+
+- **Date :** 2026-08-08
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Référence :** `32007fc96f14487949d81626dc57b8cc1b56d1d4`
+
+### DEC-016.1 — Décision officielle
+
+La Phase 3.1 consacrée aux fondations UX/UI et à la première tranche frontend read-only FL1 est officiellement clôturée. Le document de clôture détaillé est disponible dans [`docs/05-design/phase-3-1-closure-report.md`](../05-design/phase-3-1-closure-report.md).
+
+### DEC-016.2 — État technique final
+
+- Branche officielle : `architecture/phase-2-technical-design`
+- HEAD final : `32007fc96f14487949d81626dc57b8cc1b56d1d4`
+- Première tranche : fusionnée via PR #20 (merge `7adb380652c43a8777ad0eefbc74fb8bac38622c`)
+- Correctif A-003 : fusionné via PR #21 (merge `32007fc96f14487949d81626dc57b8cc1b56d1d4`)
+- `typecheck` global : 0 erreur
+- `typecheck` client : 0 erreur
+- Tests : 18 fichiers / 173 réussis / 0 désactivé
+- Build : succès
+- Git status : CLEAN
+
+### DEC-016.3 — Anomalies
+
+- **A-003** : CORRIGÉE ET FERMÉE — score affichait `undefined` au lieu de `"-"` pour les matchs non joués ; corrigé par réalignement du `ScoreDTO` et du renderer sur `score.fullTime.*` ; validé par tests de régression et Chromium réel avant fusion.
+- **A-001** : MINEURE — OUVERTE — NON BLOQUANTE — `healthUnavailable` rendu dans `#main-content` plutôt que dans `#service-status` du header.
+- **A-002** : MINEURE — OUVERTE — NON BLOQUANTE — trailing whitespace historique dans plusieurs fichiers.
+
+### DEC-016.4 — Validation UX/UI et limitation de preuve
+
+La validation UX/UI a été conduite dans un navigateur Chromium réel sur le provider in-memory. Elle a permis de détecter A-003, puis de confirmer sa correction avant fusion de la PR corrective.
+
+Validation Chromium post-merge non réexécutée en raison d'une indisponibilité temporaire de l'outil navigateur ; clôture acceptée par décision du Fondateur sur la base de la validation Chromium réelle du correctif avant fusion et de l'audit d'identité post-fusion.
+
+### DEC-016.5 — Questions ouvertes
+
+Les questions ouvertes OQ-001 à OQ-006 conservent exactement leurs statuts antérieurs. Aucune n'est résolue implicitement par Phase 3.1.
+
+Les décisions graphiques suivantes restent volontairement ouvertes : palette hexadécimale finale, typographie finale, logo, ombres, rayons, icônes.
+
+### DEC-016.6 — Autorisation de suite
+
+Phase 3.2 peut faire l'objet d'un **cadrage documentaire séparé**.
+
+- Cadrage documentaire Phase 3.2 : **AUTORISÉ**
+- Implémentation Phase 3.2 : **NON AUTORISÉE** par la présente décision — requiert une nouvelle DEC dédiée
+- Phase 2.9 Niveau 2 : non autorisée avant le 2026-08-15
+- Correction A-001 : non imposée en Phase 3.1
+- Correction A-002 : non imposée en Phase 3.1
