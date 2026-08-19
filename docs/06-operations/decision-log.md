@@ -958,7 +958,7 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 
 - **Date :** 2026-08-19
 - **Responsable :** Fondateur ABYSS
-- **Statut :** Approuvée par le Fondateur — implémentation conditionnelle après fusion et audit post-fusion de DEC-020
+- **Statut :** Approuvée par le Fondateur
 - **Document de référence :** `docs/03-technical-architecture/phase-3-2-form-5-provider-temporal-semantics.md`
 
 ### Résumé des arbitrages DEC-020
