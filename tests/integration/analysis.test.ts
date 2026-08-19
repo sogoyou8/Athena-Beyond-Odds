@@ -63,7 +63,7 @@ describe('GET /competitions/FL1/matches/analysis (Form 5)', () => {
       .expect(404);
   });
 
-  it('anti N+1 proof: calling analysis execute performs exactly 1 getMatches call to provider', async () => {
+  it('anti N+1 proof: calling analysis execute performs at most 2 getMatches calls to provider (1 primary + 1 mutualized historical)', async () => {
     let callsCount = 0;
     const innerProvider = new InMemorySportsDataProvider();
 
@@ -86,8 +86,45 @@ describe('GET /competitions/FL1/matches/analysis (Form 5)', () => {
       .get('/competitions/FL1/matches/analysis')
       .expect(200);
 
-    // 3 scheduled matches analyzed, but EXACTLY 1 getMatches provider call made (mutualized)
-    expect(callsCount).toBe(1);
+    // 3 scheduled matches analyzed, but EXACTLY 2 getMatches provider calls made (1 primary + 1 mutualized historical)
+    expect(callsCount).toBe(2);
+  });
+
+  it('M-002 graceful degradation: returns HTTP 200 with UNAVAILABLE form when historical provider call fails', async () => {
+    const innerProvider = new InMemorySportsDataProvider();
+    let callIndex = 0;
+
+    const failingHistoricalProvider: SportsDataProvider = {
+      getCompetitions(): Promise<Competition[]> {
+        return innerProvider.getCompetitions();
+      },
+      async getMatches(code: string, fromDate?: Date, toDate?: Date): Promise<Match[]> {
+        callIndex++;
+        if (callIndex === 1) {
+          // Primary call succeeds
+          return innerProvider.getMatches(code);
+        }
+        // Historical call fails
+        throw new Error('Historical provider network failure');
+      },
+      getMatchDetails(id: string): Promise<Match> {
+        return innerProvider.getMatchDetails(id);
+      },
+    };
+
+    const testApp = createApp(failingHistoricalProvider);
+
+    const res = await request(testApp)
+      .get('/competitions/FL1/matches/analysis')
+      .expect(200);
+
+    expect(res.body.matches).toHaveLength(3);
+    for (const entry of res.body.matches) {
+      expect(entry.form.home.availability).toBe('UNAVAILABLE');
+      expect(entry.form.home.results).toEqual([]);
+      expect(entry.form.away.availability).toBe('UNAVAILABLE');
+      expect(entry.form.away.results).toEqual([]);
+    }
   });
 
   it('non-regression: GET /competitions/FL1/matches still returns only SCHEDULED matches', async () => {
