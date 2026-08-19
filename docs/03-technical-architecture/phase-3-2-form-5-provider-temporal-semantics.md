@@ -1,9 +1,9 @@
 # Sémantique temporelle SportsDataProvider — Phase 3.2 : Form 5
 
-> **Date :** 2026-08-19  
-> **Responsable :** Fondateur ABYSS  
-> **Statut :** Approuvée par le Fondateur — implémentation conditionnelle après fusion et audit post-fusion de DEC-020  
-> **Référence base :** `593520398fa2b4e61f1749bb604d949b5022870b`  
+> **Date :** 2026-08-19
+> **Responsable :** Fondateur ABYSS
+> **Statut :** Approuvée par le Fondateur — implémentation conditionnelle après fusion et audit post-fusion de DEC-020
+> **Référence base :** `593520398fa2b4e61f1749bb604d949b5022870b`
 > **PR technique concernée :** `#26` (`implementation/phase-3-2-form-5`)
 
 ---
