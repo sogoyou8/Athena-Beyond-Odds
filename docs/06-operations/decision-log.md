@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 1.6
+> **Version :** 1.7
 
 # Decision Log
 
@@ -811,3 +811,51 @@ Le rejeu de la validation Phase 2.9 Niveau 2 (test avec clé API réelle footbal
 
 La présente décision autorise le **cadrage documentaire** de la Phase 3.2 et la rédaction de sa spécification fonctionnelle d'analyse.
 Elle **N'AUTORISE AUCUNE IMPLÉMENTATION DE CODE** (ni frontend, ni backend, ni endpoint, ni provider, ni dépendance). Toute écriture de code nécessitera une décision dédiée ultérieure.
+
+---
+
+## DEC-018 — Phase 3.2 — Première tranche analytique Form 5
+
+- **Date :** 2026-08-08
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Référence :** `79715c79b98b3c42d493eec5179d1f3798778000`
+
+### DEC-018.1 — Sélection officielle de la tranche Form 5
+
+Le Fondateur ABYSS approuve officiellement **Form 5 (Forme récente minimale des équipes)** comme première tranche analytique officielle du Match Center de la Phase 3.2. Le document de spécification détaillé est disponible dans [`docs/02-product-management/phase-3-2-form-5-first-slice.md`](../02-product-management/phase-3-2-form-5-first-slice.md).
+
+### DEC-018.2 — Règles conceptuelles de Form 5
+
+Form 5 représente les résultats des matchs terminés (`status === 'FINISHED'`) les plus récents d'une équipe, sous la forme d'une séquence de symboles V/N/D (Victoire/Nul/Défaite) ordonnée du plus récent au plus ancien, dans la limite maximale de 5 matchs joués. La séquence s'applique uniformément que l'équipe ait joué à domicile ou à l'extérieur. Si moins de 5 matchs joués sont disponibles (1 à 4), seuls les matchs réels sont affichés. Si 0 match terminé n'est disponible, l'état neutre `Données de forme indisponibles` est affiché sans inventer de données fictives.
+
+### DEC-018.3 — Nature descriptive et non prédictive
+
+Form 5 est une fonctionnalité strictement descriptive d'événements passés. Elle ne constitue en aucun cas une prédiction de résultat, une estimation probabiliste, un calcul d'espérance de gain (EV), une mise de Kelly, ni une recommandation de pari.
+
+### DEC-018.4 — Adéquation du Domaine et besoin technique d'accès aux matchs FINISHED
+
+Les entités fondamentales du Domaine Athena (`Match`, `Team`, `Score`, `MatchStatus`) permettent déjà de représenter les matchs terminés. En revanche, le Use Case et les adaptateurs d'infrastructure actuels filtrent exclusivement les matchs `SCHEDULED`. La mise à disposition d'un accès aux matchs passés `FINISHED` constitue une précondition technique qui devra faire l'objet d'un cadrage technique détaillé.
+
+### DEC-018.5 — Absence de nouveau contrat ou endpoint
+
+Aucun nouveau port d'interface (`SportsDataProvider` réutilise la signature `getMatches(code, fromDate, toDate)` existante), aucun nouvel endpoint HTTP, aucune nouvelle dépendance et aucune persistance longue durée ne sont introduits ni autorisés par la présente décision.
+
+### DEC-018.6 — Frontières strictes et interdictions
+
+Sont strictly proscrits de la tranche Form 5 : toute donnée de cotes bookmakers, toute comparaison de marché, tout calcul probabiliste ou de mise (Kelly), toute recommandation de pari, tout composant du Decision Engine (réservé Phase 4+) et tout modèle de Machine Learning.
+
+### DEC-018.7 — Phase 2.9 Niveau 2 non bloquante
+
+Le rejeu de la validation Phase 2.9 Niveau 2 (test avec clé API réelle `football-data.org`) demeure non bloquant pour le cadrage et le développement local déterministe de Form 5 avec l'InMemoryProvider. Il ne sera requis que plus tard, avant une validation réseau réelle, et jamais avant le 15 août 2026.
+
+### DEC-018.8 — Anomalies et Questions Ouvertes
+
+- Anomalies A-001 et A-002 conservées au backlog technique sous statut `MINEURE — OUVERTE — NON BLOQUANTE`.
+- Anomalie A-003 confirmée `CORRIGÉE ET FERMÉE`.
+- Questions Ouvertes OQ-001 à OQ-006 conservent strictement leurs statuts antérieurs sans aucune résolution sous-entendue.
+
+### DEC-018.9 — Autorisation exclusive et interdiction d'implémentation
+
+La présente décision autorise la définition documentaire de Form 5 et la préparation du cadrage technique détaillé de son implémentation.
+**Elle n'autorise aucune implémentation de code (0 ligne dans src/, 0 ligne dans tests/, 0 modification de provider, 0 modification de frontend/backend).** Toute écriture de code nécessitera une décision dédiée ultérieure.
