@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 1.8
+> **Version :** 1.9
 
 # Decision Log
 
@@ -951,3 +951,30 @@ implementation/phase-3-2-form-5
 ### DEC-019.13 — Périmètre strict
 
 DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre défini (FL1, saison courante, FINISHED, maximum 5 résultats, WIN/DRAW/LOSS). Aucune autre feature analytique, aucun ML, Decision Engine, cote, nouveau provider ou SQLite n'est autorisé dans cette tranche.
+
+---
+
+## DEC-020 — Phase 3.2 — Sémantique temporelle SportsDataProvider pour Form 5
+
+- **Date :** 2026-08-19
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur — implémentation conditionnelle après fusion et audit post-fusion de DEC-020
+- **Document de référence :** `docs/03-technical-architecture/phase-3-2-form-5-provider-temporal-semantics.md`
+
+### Résumé des arbitrages DEC-020
+
+1. **DEC-020.1 — Port inchangé :** La signature `SportsDataProvider.getMatches(competitionCode, fromDate?, toDate?)` reste strictement inchangée. Aucune nouvelle méthode provider.
+2. **DEC-020.2 — Sémantique sans bornes :** `getMatches(competitionCode)` sans dates signifie contractuellement la récupération des matchs disponibles de la saison courante de cette compétition.
+3. **DEC-020.3 — Interdiction des fenêtres implicites :** Un provider ne doit pas remplacer silencieusement un appel sans dates par une fenêtre arbitraire ou implicite (`[now, now+7j)`, 30/60/90j, etc.).
+4. **DEC-020.4 — Échec explicite si capacité absente :** Si un provider ne peut pas satisfaire la sémantique "saison courante", il doit échouer explicitement via les mécanismes d'erreur existants.
+5. **DEC-020.5 — Fenêtre programmée déplacée dans Application :** La fenêtre `[now, now+7j)` pour les matchs programmés devient une politique explicite de la couche Application, préservant `GET /competitions/:competitionCode/matches`.
+6. **DEC-020.6 — Appel principal `/analysis` :** Appel explicite `getMatches(competitionCode, now, now+7j)` pour les matchs programmés à afficher.
+7. **DEC-020.7 — Appel historique Form 5 :** Appel séparé `getMatches(competitionCode)` sans dates pour la saison courante.
+8. **DEC-020.8 — FormCalculator inchangé :** Conserve tous les filtres métiers (même compétition, même `seasonId`, `FINISHED`, score exploitable, `utcDate < targetDate`, tri déterministe, max 5).
+9. **DEC-020.9 — Anti N+1 :** Architecture O(1) avec 1 appel principal + 1 appel historique mutualisé pour N cartes analytiques.
+10. **DEC-020.10 — M-002 préservée :** Récupération principale réussie + historique échoué = HTTP 200, matchs conservés, Form 5 `UNAVAILABLE`.
+11. **DEC-020.11 — M-003 préservée :** Rendu et couverture de tests frontend Form 5 intégralement conservés (`WIN -> V`, `DRAW -> N`, `LOSS -> D`, ARIA, etc.).
+12. **DEC-020.12 — Domaine inchangé :** Aucun changement de structure sur `Match`, `Season`, `Score` ou `SportsDataProvider`.
+13. **DEC-020.13 — Hors périmètre :** Aucun SQLite, nouveau provider, ML, Decision Engine, cote, EV ou Kelly.
+14. **DEC-020.14 — Autorisation conditionnelle du correctif M-001 :** Le troisième commit correctif M-001 sur PR `#26` est autorisé **UNIQUEMENT APRÈS** la fusion conforme de DEC-020 et son audit post-fusion positif.
+15. **DEC-020.15 — Phase 2.9 :** Aucun appel réseau réel pendant la phase documentaire. Validation réelle éligible après audit de la PR `#26` finale.
