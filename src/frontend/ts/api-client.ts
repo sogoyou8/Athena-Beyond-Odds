@@ -42,6 +42,31 @@ export type MatchesFetchResult =
   | { type: 'networkError' }
   | { type: 'unexpectedError' };
 
+export type FormResultDTO = 'WIN' | 'DRAW' | 'LOSS';
+export type FormAvailabilityDTO = 'AVAILABLE' | 'INSUFFICIENT_DATA' | 'UNAVAILABLE';
+
+export interface TeamFormDTO {
+  teamId: string;
+  availability: FormAvailabilityDTO;
+  results: FormResultDTO[];
+}
+
+export interface AnalyticalMatchEntryDTO {
+  match: MatchDTO;
+  form: {
+    home: TeamFormDTO;
+    away: TeamFormDTO;
+  };
+}
+
+export type AnalyticalMatchesFetchResult =
+  | { type: 'success'; data: AnalyticalMatchEntryDTO[] }
+  | { type: 'competitionUnavailable' }
+  | { type: 'rateLimited' }
+  | { type: 'providerUnavailable' }
+  | { type: 'networkError' }
+  | { type: 'unexpectedError' };
+
 export async function checkHealth(fetchImpl: typeof fetch = globalThis.fetch): Promise<boolean> {
   try {
     const response = await fetchImpl('/health');
@@ -60,6 +85,37 @@ export async function fetchScheduledMatches(
 
     if (response.status === 200) {
       const json = (await response.json()) as { matches?: MatchDTO[] } | MatchDTO[];
+      const data = Array.isArray(json) ? json : json.matches ?? [];
+      return { type: 'success', data };
+    }
+
+    if (response.status === 404) {
+      return { type: 'competitionUnavailable' };
+    }
+
+    if (response.status === 429) {
+      return { type: 'rateLimited' };
+    }
+
+    if (response.status === 503) {
+      return { type: 'providerUnavailable' };
+    }
+
+    return { type: 'unexpectedError' };
+  } catch {
+    return { type: 'networkError' };
+  }
+}
+
+export async function fetchAnalyticalMatches(
+  competitionCode: string = 'FL1',
+  fetchImpl: typeof fetch = globalThis.fetch
+): Promise<AnalyticalMatchesFetchResult> {
+  try {
+    const response = await fetchImpl(`/competitions/${encodeURIComponent(competitionCode)}/matches/analysis`);
+
+    if (response.status === 200) {
+      const json = (await response.json()) as { matches?: AnalyticalMatchEntryDTO[] } | AnalyticalMatchEntryDTO[];
       const data = Array.isArray(json) ? json : json.matches ?? [];
       return { type: 'success', data };
     }

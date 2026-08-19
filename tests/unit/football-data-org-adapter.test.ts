@@ -184,14 +184,14 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
     await expect(adapter.getMatches('FL1')).rejects.toThrow(ProviderUnavailableError);
   });
 
-  it('filtre et conserve uniquement les matchs au statut SCHEDULED', async () => {
+  it('normalise tous les matchs quel que soit leur statut (DEC-019)', async () => {
     const mockFetch = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
           matches: [
             {
               id: 1,
-              utcDate: '2026-07-31T20:00:00Z',
+              utcDate: '2026-07-28T20:00:00Z',
               status: 'SCHEDULED',
               homeTeam: { id: 1, name: 'Team A' },
               awayTeam: { id: 2, name: 'Team B' },
@@ -224,8 +224,8 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
 
     const matches = await adapter.getMatches('FL1');
 
-    expect(matches).toHaveLength(2);
-    expect(matches.map((m) => m.id)).toEqual(['match-1', 'match-3']);
+    expect(matches).toHaveLength(3);
+    expect(matches.map((m) => m.id)).toEqual(['match-1', 'match-2', 'match-3']);
   });
 
   it('utilise les bornes explicites fromDate et toDate quand les deux sont fournies (DEC-008.3 Option A)', async () => {

@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { createHealthRouter } from './interfaces/http/health-route.js';
 import { createMatchesRouter } from './interfaces/http/matches-route.js';
+import { createAnalysisRouter } from './interfaces/http/analysis-route.js';
 import { SportsDataProvider } from './application/ports/sports-data-provider.js';
 import { InMemorySportsDataProvider } from './infrastructure/providers/in-memory/in-memory-sports-data-provider.js';
 import { FootballDataOrgAdapter } from './infrastructure/providers/football-data-org/football-data-org-adapter.js';
@@ -64,6 +65,7 @@ export function createApp(
 
   app.use('/', createHealthRouter());
   app.use('/', createMatchesRouter(provider));
+  app.use('/', createAnalysisRouter(provider));
 
   const publicPath = options.publicPath ?? defaultPublicPath;
   app.use(express.static(publicPath));

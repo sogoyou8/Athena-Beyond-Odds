@@ -5,16 +5,16 @@ describe('InMemorySportsDataProvider', () => {
   const provider = new InMemorySportsDataProvider();
 
   describe('getMatches("FL1")', () => {
-    it('returns exactly 3 matches', async () => {
+    it('returns all 20 normalized matches (SCHEDULED + FINISHED) (DEC-019)', async () => {
       const matches = await provider.getMatches('FL1');
-      expect(matches).toHaveLength(3);
+      expect(matches).toHaveLength(20);
     });
 
-    it('all matches have status SCHEDULED', async () => {
+    it('contains both SCHEDULED and FINISHED statuses', async () => {
       const matches = await provider.getMatches('FL1');
-      for (const match of matches) {
-        expect(match.status).toBe('SCHEDULED');
-      }
+      const statuses = new Set(matches.map((m) => m.status));
+      expect(statuses).toContain('SCHEDULED');
+      expect(statuses).toContain('FINISHED');
     });
 
     it('contains the exact approved UTC timestamps', async () => {

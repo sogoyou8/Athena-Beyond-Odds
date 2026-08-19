@@ -4,17 +4,18 @@
  *
  * Implémentation Phase 2.8 — Connexion réelle à l'API football-data.org v4.
  *
- * Principes et garde-fous (DEC-006) :
+ * Principes et garde-fous (DEC-006 / DEC-019) :
  * 1. Utilise globalThis.fetch natif sans dépendance npm. Transport HTTP injectable.
  * 2. Authentification via en-tête X-Auth-Token. Aucun token dans les logs ou les URL.
  * 3. Clé API transmise via le constructeur.
  * 4. Fenêtre temporelle [dateFrom, dateFrom + 7 jours) UTC (dateTo exclusive). Horloge injectable.
- * 5. Filtre final pour conserver uniquement les matchs au statut SCHEDULED.
+ * 5. Le provider normalise TOUS les matchs retournés (SCHEDULED, FINISHED, LIVE, etc.).
+ *    Le filtrage métier par statut est délégué à la couche Application (DEC-019.5).
  * 6. Délai maximal de 8 secondes par requête via AbortController.
  * 7. HTTP 429 -> ProviderRateLimitError (puis HTTP 429).
  * 8. Erreurs réseau, timeout, HTTP 401, 403, 5xx, JSON invalide, mapping incompatible -> ProviderUnavailableError (puis HTTP 503).
  *
- * Références : phase-2-8-real-provider-validation-pack.md (DEC-006)
+ * Références : phase-2-8-real-provider-validation-pack.md (DEC-006) / DEC-019
  */
 
 import { SportsDataProvider } from '../../../application/ports/sports-data-provider.js';
@@ -336,9 +337,6 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
       }
 
       const mappedStatus = this.mapStatus(raw.status);
-      if (mappedStatus !== 'SCHEDULED') {
-        continue;
-      }
 
       if (
         !raw.id ||
@@ -401,7 +399,7 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
         seasonId: `season-${matchDate.getUTCFullYear()}`,
         matchday: raw.matchday ?? 1,
         utcDate: matchDate,
-        status: 'SCHEDULED',
+        status: mappedStatus,
         homeTeam,
         awayTeam,
         score,
