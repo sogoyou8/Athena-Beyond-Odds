@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 1.7
+> **Version :** 1.8
 
 # Decision Log
 
@@ -859,3 +859,95 @@ Le rejeu de la validation Phase 2.9 Niveau 2 (test avec clé API réelle `footba
 
 La présente décision autorise la définition documentaire de Form 5 et la préparation du cadrage technique détaillé de son implémentation.
 **Elle n'autorise aucune implémentation de code (0 ligne dans src/, 0 ligne dans tests/, 0 modification de provider, 0 modification de frontend/backend).** Toute écriture de code nécessitera une décision dédiée ultérieure.
+
+---
+
+## DEC-019 — Phase 3.2 — Cadrage technique et autorisation d'implémentation Form 5
+
+- **Date :** 2026-08-19
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Référence :** `c2a18dcb211432df8844917cd12329ebfbc8c810`
+- **Document technique :** [`docs/03-technical-architecture/phase-3-2-form-5-technical-design.md`](../03-technical-architecture/phase-3-2-form-5-technical-design.md)
+
+### DEC-019.1 — Architecture Form 5 approuvée
+
+L'architecture technique détaillée de Form 5, telle que définie dans `docs/03-technical-architecture/phase-3-2-form-5-technical-design.md`, est officiellement approuvée par le Fondateur ABYSS. Les 7 arbitrages fondateurs sont verrouillés définitivement.
+
+### DEC-019.2 — Endpoint analytique agrégé
+
+Form 5 sera exposée via un endpoint agrégé unique :
+
+```
+GET /competitions/:competitionCode/matches/analysis
+```
+
+Ce endpoint fournit en une seule réponse les données analytiques (matchs programmés + Form 5 domicile/extérieur) nécessaires au Match Center. Aucun endpoint Form 5 par match ou par équipe n'est autorisé. Le contrat existant `GET /competitions/:competitionCode/matches` reste inchangé.
+
+### DEC-019.3 — Historique de récupération : saison courante jusqu'à la date cible
+
+Form 5 utilise uniquement les matchs `FINISHED` de la **même compétition** et de la **saison courante**, dont la date (`utcDate`) est **strictement antérieure** à celle du match analysé. Cette règle garantit :
+
+- la protection contre le **look-ahead bias** et toute fuite temporelle ;
+- la compatibilité avec de futurs backtests chronologiques ;
+- l'absence de toute fenêtre glissante arbitraire (30/60/90 jours).
+
+Les 5 matchs exploitables les plus récents sont ensuite retenus (maximum).
+
+### DEC-019.4 — Pas d'inter-saison dans la première tranche
+
+Form 5 initiale est strictement limitée à la **saison courante**. Si une équipe a joué 1 à 4 matchs dans la saison en cours, seules ces données sont affichées. La saison précédente ne complète jamais artificiellement la séquence. Cette règle est conforme à DEC-018.
+
+### DEC-019.5 — Responsabilité du Provider
+
+Le provider (`SportsDataProvider`) est responsable de la **récupération et de la normalisation** des matchs sur la compétition/période demandée. Il ne doit plus appliquer de filtrage métier inconditionnel `status === 'SCHEDULED'`. La signature `getMatches(competitionCode, fromDate?, toDate?)` reste **inchangée**.
+
+### DEC-019.6 — Non-régression SCHEDULED portée par ListScheduledMatchesUseCase
+
+`ListScheduledMatchesUseCase` conserve son filtre applicatif `match.status === 'SCHEDULED'`. La non-régression du comportement de `GET /competitions/:code/matches` est prouvée par les tests unitaires de ce use-case et non par un filtre dans l'adaptateur provider.
+
+### DEC-019.7 — Représentation interne neutre / UI française
+
+La représentation technique interne (DTO, service domaine) utilise :
+
+```
+WIN | DRAW | LOSS
+```
+
+Le mappage vers l'interface utilisateur française (`V` | `N` | `D`) est effectué exclusivement au niveau de la couche de rendu frontend (`render.ts`). OQ-004 reste ouverte.
+
+### DEC-019.8 — Dégradation gracieuse : statuts de disponibilité Form 5
+
+Le DTO distingue trois états pour chaque équipe :
+
+- `AVAILABLE` : au moins 1 match FINISHED exploitable dans la saison courante.
+- `INSUFFICIENT_DATA` : aucun match FINISHED exploitable (0 résultat valide).
+- `UNAVAILABLE` : erreur technique ou provider lors de la récupération historique.
+
+Une erreur Form 5 ne fait pas disparaître les matchs programmés. Aucun nouvel état global frontend n'est introduit.
+
+### DEC-019.9 — Anti N+1 : récupération historique mutualisée
+
+L'historique Form 5 est récupéré une seule fois par compétition/saison pour calculer la forme de l'ensemble des équipes affichées. Le cache existant (`InMemoryCache`) est réutilisé si pertinent. Aucune nouvelle technologie de cache n'est introduite.
+
+### DEC-019.10 — SQLite non requis
+
+Form 5 ne nécessite aucune persistance longue durée. SQLite n'est pas requis.
+
+### DEC-019.11 — Phase 2.9 Niveau 2
+
+Phase 2.9 Niveau 2 est **non requise avant l'implémentation locale**. Elle sera exécutée après l'implémentation locale, les tests déterministes et l'audit de la PR technique, avant la validation réelle finale avec `football-data.org`. La date historique du 15 août 2026 étant désormais passée, aucun blocage temporel n'existe.
+
+### DEC-019.12 — Autorisation conditionnelle d'implémentation
+
+La présente décision autorise l'ouverture de la future branche d'implémentation :
+
+```
+implementation/phase-3-2-form-5
+```
+
+**Cette autorisation ne prendra effet qu'après la fusion conforme de la PR documentaire DEC-019 et la confirmation du verdict d'audit post-fusion.** Aucun code ne doit être écrit avant cette validation.
+
+### DEC-019.13 — Périmètre strict
+
+DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre défini (FL1, saison courante, FINISHED, maximum 5 résultats, WIN/DRAW/LOSS). Aucune autre feature analytique, aucun ML, Decision Engine, cote, nouveau provider ou SQLite n'est autorisé dans cette tranche.
