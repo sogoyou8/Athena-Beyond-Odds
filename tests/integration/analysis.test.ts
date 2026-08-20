@@ -1,16 +1,17 @@
 /**
- * Tests d'intégration / contrat — GET /competitions/:code/matches/analysis (Form 5 + Season Strength DEC-024).
+ * Tests d'intégration / contrat — GET /competitions/:code/matches/analysis
+ * (Form 5 + Season Strength DEC-024 + H2H DEC-027).
  */
 
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
-import { SportsDataProvider } from '../../src/application/ports/sports-data-provider.js';
+import { SportsDataProvider, HistoryFilter } from '../../src/application/ports/sports-data-provider.js';
 import { Match } from '../../src/domain/entities/match.js';
 import { Competition } from '../../src/domain/entities/competition.js';
 import { InMemorySportsDataProvider, IN_MEMORY_REFERENCE_NOW } from '../../src/infrastructure/providers/in-memory/in-memory-sports-data-provider.js';
 
-describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-024)', () => {
+describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-024 + H2H DEC-027)', () => {
   const app = createApp();
 
   it('returns HTTP 200 with competitionCode and matches array', async () => {
@@ -80,10 +81,6 @@ describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-0
     expect(homeStrength.contextual.segment.sampleSize).toBe(4);
 
     // Away team: Beta — matchs FINISHED avant 2099-08-14T18:00:00Z
-    // Beta participe à : hist-104 (Beta away vs Alpha), hist-105 (Beta home vs Alpha),
-    //   hist-201 (Beta home vs Alpha), hist-202 (Epsilon home vs Beta),
-    //   hist-301 (Gamma home vs Beta), hist-302 (Beta home vs Gamma), hist-402 (Beta home vs Delta)
-    // = 7 matchs, contextual AWAY = hist-104 (Beta away), hist-202 (Beta away), hist-301 (Beta away) = 3 matchs
     const awayStrength = first.seasonStrength.away;
     expect(awayStrength.teamId).toBe('team-beta-002');
     expect(awayStrength.overall.availability).toBe('AVAILABLE');
@@ -115,19 +112,48 @@ describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-0
       .expect(404);
   });
 
-  it('anti N+1 proof: calling analysis execute performs at most 2 getMatches calls to provider (1 primary + 1 mutualized historical) per DEC-020 & DEC-024', async () => {
+  // ================================================================
+  // DEC-027 — H2H Présence et contrat DTO
+  // ================================================================
+
+  it('DEC-027: /analysis response includes headToHead field on every entry', async () => {
+    const res = await request(app)
+      .get('/competitions/FL1/matches/analysis')
+      .expect(200);
+
+    expect(res.body.matches).toHaveLength(3);
+    for (const entry of res.body.matches) {
+      expect(entry).toHaveProperty('headToHead');
+      expect(entry.headToHead).toHaveProperty('overall');
+      expect(entry.headToHead).toHaveProperty('contextual');
+      expect(entry.headToHead.contextual.venue).toBe('SAME_VENUE');
+      expect(['AVAILABLE', 'INSUFFICIENT_DATA', 'UNAVAILABLE']).toContain(
+        entry.headToHead.overall.availability
+      );
+      expect(['AVAILABLE', 'INSUFFICIENT_DATA', 'UNAVAILABLE']).toContain(
+        entry.headToHead.contextual.segment.availability
+      );
+    }
+  });
+
+  // ================================================================
+  // DEC-027 — Budget d'invocations logiques + Anti-N+1
+  // APPLICATION_PROVIDER_INVOCATIONS <= 2
+  // ================================================================
+
+  it('DEC-027: anti N+1 proof — exactly 2 provider invocations, call 2 passes historyFilter { seasonCount: 3 }', async () => {
     let callsCount = 0;
-    const recordedCalls: { code: string; fromDate?: Date; toDate?: Date }[] = [];
+    const recordedCalls: { code: string; fromDate?: Date; toDate?: Date; historyFilter?: HistoryFilter }[] = [];
     const innerProvider = new InMemorySportsDataProvider();
 
     const spyProvider: SportsDataProvider = {
       getCompetitions(): Promise<Competition[]> {
         return innerProvider.getCompetitions();
       },
-      getMatches(code: string, fromDate?: Date, toDate?: Date): Promise<Match[]> {
+      getMatches(code: string, fromDate?: Date, toDate?: Date, historyFilter?: HistoryFilter): Promise<Match[]> {
         callsCount++;
-        recordedCalls.push({ code, fromDate, toDate });
-        return innerProvider.getMatches(code, fromDate, toDate);
+        recordedCalls.push({ code, fromDate, toDate, historyFilter });
+        return innerProvider.getMatches(code, fromDate, toDate, historyFilter);
       },
       getMatchDetails(id: string): Promise<Match> {
         return innerProvider.getMatchDetails(id);
@@ -142,21 +168,49 @@ describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-0
       .get('/competitions/FL1/matches/analysis')
       .expect(200);
 
-    // 3 scheduled matches analyzed, Form 5 AND Season Strength computed, but EXACTLY 2 getMatches provider calls made
+    // APPLICATION_PROVIDER_INVOCATIONS <= 2 (DEC-027)
     expect(callsCount).toBe(2);
 
-    // Call 1: primary call with explicit date window (DEC-020.6)
+    // Call 1 : fenêtre principale (DEC-020.6)
     expect(recordedCalls[0].code).toBe('FL1');
     expect(recordedCalls[0].fromDate).toBeInstanceOf(Date);
     expect(recordedCalls[0].toDate).toBeInstanceOf(Date);
+    expect(recordedCalls[0].historyFilter).toBeUndefined();
 
-    // Call 2: historical mutualized call without date bounds (DEC-020.7 / DEC-024 / M-001)
+    // Call 2 : corpus historique mutualisé avec historyFilter.seasonCount=3 (DEC-027 Option 3B)
     expect(recordedCalls[1].code).toBe('FL1');
     expect(recordedCalls[1].fromDate).toBeUndefined();
     expect(recordedCalls[1].toDate).toBeUndefined();
+    expect(recordedCalls[1].historyFilter).toEqual({ seasonCount: 3 });
   });
 
-  it('M-002 extended graceful degradation: returns HTTP 200 with UNAVAILABLE form AND SeasonStrength when historical provider call fails', async () => {
+  it('DEC-027: anti N+1 multi-match — 3 scheduled matches do NOT increase provider invocation count (O(1))', async () => {
+    let callsCount = 0;
+    const innerProvider = new InMemorySportsDataProvider();
+
+    const spyProvider: SportsDataProvider = {
+      getCompetitions(): Promise<Competition[]> { return innerProvider.getCompetitions(); },
+      getMatches(code: string, fromDate?: Date, toDate?: Date, historyFilter?: HistoryFilter): Promise<Match[]> {
+        callsCount++;
+        return innerProvider.getMatches(code, fromDate, toDate, historyFilter);
+      },
+      getMatchDetails(id: string): Promise<Match> { return innerProvider.getMatchDetails(id); },
+    };
+
+    const testApp = createApp(spyProvider, { clockFn: () => IN_MEMORY_REFERENCE_NOW });
+    const res = await request(testApp).get('/competitions/FL1/matches/analysis').expect(200);
+
+    // Les fixtures InMemory donnent 3 matches SCHEDULED
+    expect(res.body.matches).toHaveLength(3);
+    // Malgré 3 cartes, les invocations restent à 2 (O(1) par rapport au volume)
+    expect(callsCount).toBe(2);
+  });
+
+  // ================================================================
+  // DEC-027 — Dégradation gracieuse étendue : headToHead UNAVAILABLE
+  // ================================================================
+
+  it('DEC-027 M-002 extended: HTTP 200 with UNAVAILABLE form, SeasonStrength AND headToHead when historical call fails', async () => {
     const innerProvider = new InMemorySportsDataProvider();
     let callIndex = 0;
 
@@ -164,13 +218,11 @@ describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-0
       getCompetitions(): Promise<Competition[]> {
         return innerProvider.getCompetitions();
       },
-      async getMatches(code: string, fromDate?: Date, toDate?: Date): Promise<Match[]> {
+      async getMatches(code: string, fromDate?: Date, toDate?: Date, historyFilter?: HistoryFilter): Promise<Match[]> {
         callIndex++;
         if (callIndex === 1) {
-          // Primary call succeeds
           return innerProvider.getMatches(code, fromDate, toDate);
         }
-        // Historical call fails
         throw new Error('Historical provider network failure');
       },
       getMatchDetails(id: string): Promise<Match> {
@@ -208,10 +260,26 @@ describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-0
       expect(entry.seasonStrength.away.contextual.segment.availability).toBe('UNAVAILABLE');
       expect(entry.seasonStrength.away.contextual.segment.sampleSize).toBeNull();
       expect(entry.seasonStrength.away.contextual.segment.metrics).toBeNull();
+
+      // DEC-027: headToHead UNAVAILABLE quand le corpus historique échoue
+      expect(entry.headToHead).toBeDefined();
+      expect(entry.headToHead.overall.availability).toBe('UNAVAILABLE');
+      expect(entry.headToHead.overall.sampleSize).toBeNull();
+      expect(entry.headToHead.overall.homeTeam).toBeNull();
+      expect(entry.headToHead.overall.awayTeam).toBeNull();
+      expect(entry.headToHead.overall.latestMeetingDate).toBeNull();
+      expect(entry.headToHead.overall.oldestMeetingDate).toBeNull();
+      expect(entry.headToHead.overall.seasonsCovered).toBeNull();
+      expect(entry.headToHead.contextual.venue).toBe('SAME_VENUE');
+      expect(entry.headToHead.contextual.segment.availability).toBe('UNAVAILABLE');
     }
   });
 
-  it('non-regression: GET /competitions/FL1/matches still returns only SCHEDULED matches without analysis payload', async () => {
+  // ================================================================
+  // DEC-027 — Non-régression /matches
+  // ================================================================
+
+  it('DEC-027 non-regression: GET /competitions/FL1/matches still returns only SCHEDULED matches without headToHead', async () => {
     const res = await request(app)
       .get('/competitions/FL1/matches')
       .expect(200);
@@ -221,6 +289,7 @@ describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-0
       expect(m.status).toBe('SCHEDULED');
       expect(m).not.toHaveProperty('form');
       expect(m).not.toHaveProperty('seasonStrength');
+      expect(m).not.toHaveProperty('headToHead');
     }
   });
 
@@ -237,7 +306,7 @@ describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-0
       getCompetitions(): Promise<Competition[]> {
         return innerProvider.getCompetitions();
       },
-      async getMatches(code: string, fromDate?: Date, toDate?: Date): Promise<Match[]> {
+      async getMatches(code: string, fromDate?: Date, toDate?: Date, historyFilter?: HistoryFilter): Promise<Match[]> {
         callIndex++;
         if (callIndex === 1) {
           // Primary call: simulate HTTP 400 rejection
@@ -270,7 +339,7 @@ describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-0
     expect(JSON.stringify(res.body)).not.toContain('providerCode');
   });
 
-  it('DEC-021 + M-002: historical ProviderRequestRejectedError produces HTTP 200 with UNAVAILABLE form and SeasonStrength (graceful degradation)', async () => {
+  it('DEC-021 + M-002 + DEC-027: historical ProviderRequestRejectedError → HTTP 200 with UNAVAILABLE form, SeasonStrength AND headToHead', async () => {
     const { ProviderRequestRejectedError } = await import('../../src/application/errors/index.js');
     const innerProvider = new InMemorySportsDataProvider();
     let callIndex = 0;
@@ -279,7 +348,7 @@ describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-0
       getCompetitions(): Promise<Competition[]> {
         return innerProvider.getCompetitions();
       },
-      async getMatches(code: string, fromDate?: Date, toDate?: Date): Promise<Match[]> {
+      async getMatches(code: string, fromDate?: Date, toDate?: Date, historyFilter?: HistoryFilter): Promise<Match[]> {
         callIndex++;
         if (callIndex === 1) {
           // Primary call succeeds
@@ -311,6 +380,9 @@ describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-0
       expect(entry.form.away.availability).toBe('UNAVAILABLE');
       expect(entry.seasonStrength.home.overall.availability).toBe('UNAVAILABLE');
       expect(entry.seasonStrength.away.overall.availability).toBe('UNAVAILABLE');
+      // DEC-027: H2H également UNAVAILABLE
+      expect(entry.headToHead.overall.availability).toBe('UNAVAILABLE');
+      expect(entry.headToHead.contextual.segment.availability).toBe('UNAVAILABLE');
     }
     // Aucun diagnostic upstream exposé dans la réponse
     expect(JSON.stringify(res.body)).not.toContain('season boundary exceeded');
