@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.2
+> **Version :** 2.3
 
 # Decision Log
 
@@ -1053,3 +1053,28 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 8. **DEC-023.8 — Disponibilité et zéro match :** Gestion normalisée des états `AVAILABLE`, `INSUFFICIENT_DATA` et `UNAVAILABLE`. Interdiction de fabriquer des faux zéros statistiques (0.00 PPG) en cas de 0 match terminé. Dégradation gracieuse préservée.
 9. **DEC-023.9 — Questions Ouvertes (OQ-007 à OQ-015) :** Cadrage formel des questions ouvertes relatives au classement éventuel (`seasonRank`), au seuil de représentativité statistique ($N$), aux arrondis UI, au format des DTOs et à la sélection des métriques sans bruit.
 10. **DEC-023.10 — Séquence de validation obligatoire :** Validation du cadrage produit (DEC-023) -> Arbitrage du Fondateur sur OQ-007..OQ-015 -> Conception technique détaillée (DEC-024) -> Implémentation autorisable ultérieurement.
+
+---
+
+## DEC-024 — Phase 3.3 — Conception technique du profil de force saisonnier
+
+- **Date :** 2026-08-20
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Document de référence :** `docs/03-technical-architecture/phase-3-3-season-strength-technical-design.md`
+
+### Résumé des arbitrages et spécifications DEC-024
+
+1. **DEC-024.1 — Conception technique détaillée arrêtée :** La conception technique du profil de force saisonnier (Phase 3.3) est formellement définie et verrouillée. L'implémentation demeure non autorisée avant fusion et audit de cette décision.
+2. **DEC-024.2 — Résolution formelle des questions ouvertes (OQ-007 à OQ-015) :**
+   - *OQ-007 / OQ-008 / OQ-009 :* Aucun `seasonRank` ni règle de départage (*tie-break*) en v1 (différé avec le module de classement).
+   - *OQ-010 :* 0 match terminé = `INSUFFICIENT_DATA` ; $\ge 1$ match terminé = calculable (`AVAILABLE`). Aucun seuil arbitraire de masquage ; la taille d'échantillon réelle (`sampleSize`) est explicitement exposée.
+   - *OQ-011 :* Calculs internes exacts sans arrondi ; formatage à 2 décimales pour les ratios (`pointsPerMatch`, `goalsForPerMatch`, `goalsAgainstPerMatch`) uniquement dans la couche de présentation.
+   - *OQ-012 :* Profil global (`overall`) + split contextualisé au match (`contextual`: `HOME` pour l'équipe recevante, `AWAY` pour la visiteuse).
+   - *OQ-013 :* Noyau métrique strict de 11 champs sans ajouts superflus (*clean sheets*, BTTS, $xG$, etc.).
+   - *OQ-014 :* Réutilisation obligatoire du dataset historique mutualisé de la saison courante ; maximum structurel de 2 appels provider par exécution de `/analysis` ($O(1)$ provider, zéro N+1).
+   - *OQ-015 :* DTO explicite `SeasonStrengthProfile` structuré en deux segments (`overall` et `contextual`) avec disponibilités indépendantes et `metrics: null` en cas d'indisponibilité.
+3. **DEC-024.3 — Composant pur `SeasonStrengthCalculator` :** Service de domaine déterministe et sans effet de bord, calculant les métriques à partir d'un simple tableau de matchs historiques sans accès réseau, cache ou base de données.
+4. **DEC-024.4 — Filtrage temporel strict :** Même compétition, même saison, matchs `FINISHED` avec score `fullTime` complet, et antériorité temporelle stricte (`match.utcDate < targetMatch.utcDate`, match cible strictement exclu).
+5. **DEC-024.5 — Port provider inchangé :** La signature et le contrat de `SportsDataProvider.getMatches(competitionCode, fromDate?, toDate?)` demeurent strictement inchangés (DEC-020).
+6. **DEC-024.6 — Dégradation gracieuse et robustesse (M-002 étendu) :** En cas d'échec du flux historique, l'endpoint `/analysis` répond `HTTP 200` avec les matchs programmés intacts, Form 5 `UNAVAILABLE` et Season Strength `UNAVAILABLE`. Aucun nouvel état global frontend.
