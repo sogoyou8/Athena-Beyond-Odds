@@ -1,10 +1,10 @@
 /**
- * Rendu DOM textuel sécurisé — Athena Frontend Phase 3.1 & Phase 3.3
+ * Rendu DOM textuel sécurisé — Athena Frontend Phase 3.1, Phase 3.3 & Phase 3.4
  *
  * Utilise exclusivement textContent et document.createElement pour l'injection dynamique.
  * Interdiction absolue de toute primitive d'injection HTML brute.
  *
- * Référence : DEC-019 (Form 5) / DEC-024 (Season Strength)
+ * Référence : DEC-019 (Form 5) / DEC-024 (Season Strength) / DEC-027 (H2H)
  */
 
 import {
@@ -13,6 +13,8 @@ import {
   TeamFormDTO,
   SeasonStrengthProfileDTO,
   SeasonStrengthSegmentDTO,
+  HeadToHeadProfileDTO,
+  HeadToHeadSegmentDTO,
 } from './api-client.js';
 
 export type ClientState =
@@ -334,6 +336,134 @@ export function createSeasonStrengthElement(profile: SeasonStrengthProfileDTO): 
   return container;
 }
 
+/**
+ * Formate une date ISO UTC au format court français "JJ/MM/AAAA".
+ */
+function formatShortDate(isoString: string): string {
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Crée l'élément UI d'un segment H2H (Overall ou SAME_VENUE).
+ */
+function createHeadToHeadSegmentElement(label: string, segment: HeadToHeadSegmentDTO): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'h2h-segment';
+
+  const segLabel = document.createElement('div');
+  segLabel.className = 'h2h-segment-label';
+  segLabel.textContent = label;
+  el.append(segLabel);
+
+  if (segment.availability !== 'AVAILABLE' || segment.homeTeam === null || segment.awayTeam === null) {
+    const status = document.createElement('span');
+    status.className = `h2h-segment-status h2h-status-${segment.availability.toLowerCase()}`;
+    status.textContent = segment.availability === 'INSUFFICIENT_DATA' ? 'Données insuffisantes' : 'Indisponible';
+    el.append(status);
+    return el;
+  }
+
+  // Stats bar
+  const stats = document.createElement('div');
+  stats.className = 'h2h-stats';
+  stats.setAttribute('aria-label', `${label}: ${segment.sampleSize} confrontation(s)`);
+
+  const buildStat = (labelText: string, value: string | number): HTMLElement => {
+    const item = document.createElement('span');
+    item.className = 'h2h-stat-item';
+    const l = document.createElement('span');
+    l.className = 'h2h-stat-label';
+    l.textContent = `${labelText} `;
+    const v = document.createElement('span');
+    v.className = 'h2h-stat-value';
+    v.textContent = String(value);
+    item.append(l, v);
+    return item;
+  };
+
+  const home = segment.homeTeam;
+  const away = segment.awayTeam;
+
+  stats.append(
+    buildStat('Joués', segment.sampleSize!),
+    buildStat('V DOM', home.wins),
+    buildStat('N', home.draws),
+    buildStat('V EXT', away.wins),
+    buildStat('BM DOM', home.goalsFor),
+    buildStat('BM EXT', away.goalsFor),
+  );
+
+  el.append(stats);
+
+  // Métadonnées : période historique et saisons couvertes
+  const metaContainer = document.createElement('div');
+  metaContainer.className = 'h2h-meta-row';
+
+  if (segment.oldestMeetingDate && segment.latestMeetingDate) {
+    const oldestStr = formatShortDate(segment.oldestMeetingDate);
+    const latestStr = formatShortDate(segment.latestMeetingDate);
+
+    if (oldestStr && latestStr) {
+      const periodEl = document.createElement('span');
+      periodEl.className = 'h2h-period';
+      if (oldestStr === latestStr) {
+        periodEl.textContent = oldestStr;
+      } else {
+        periodEl.textContent = `${oldestStr} → ${latestStr}`;
+      }
+      metaContainer.append(periodEl);
+    }
+  }
+
+  if (segment.seasonsCovered !== null && segment.seasonsCovered > 0) {
+    const coverage = document.createElement('span');
+    coverage.className = 'h2h-seasons-covered';
+    coverage.textContent = `${segment.seasonsCovered} saison${segment.seasonsCovered > 1 ? 's' : ''} couverte${segment.seasonsCovered > 1 ? 's' : ''}`;
+    metaContainer.append(coverage);
+  }
+
+  if (metaContainer.childNodes.length > 0) {
+    el.append(metaContainer);
+  }
+
+  return el;
+}
+
+/**
+ * Crée le bloc UI "Head-to-Head" pour la carte de match (DEC-027).
+ */
+export function createHeadToHeadElement(profile: HeadToHeadProfileDTO): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'h2h-container';
+  container.setAttribute('aria-label', 'Head-to-Head contextualisé');
+
+  const title = document.createElement('div');
+  title.className = 'h2h-title';
+  title.textContent = 'Confrontations directes';
+  container.append(title);
+
+  const overallEl = createHeadToHeadSegmentElement('Global', profile.overall);
+  overallEl.classList.add('h2h-overall');
+  container.append(overallEl);
+
+  const contextualEl = createHeadToHeadSegmentElement('Même config. de terrain', profile.contextual.segment);
+  contextualEl.classList.add('h2h-contextual');
+  container.append(contextualEl);
+
+  return container;
+}
+
 function createMatchCard(match: MatchDTO): HTMLElement {
   const card = document.createElement('article');
   card.className = 'match-card';
@@ -425,6 +555,12 @@ function createAnalyticalMatchCard(entry: AnalyticalMatchEntryDTO): HTMLElement 
 
     analyticsSection.append(homeStrengthEl, awayStrengthEl);
     card.append(analyticsSection);
+  }
+
+  // Intégrer le bloc H2H si présent (DEC-027 Phase 3.4)
+  if (entry.headToHead) {
+    const h2hEl = createHeadToHeadElement(entry.headToHead);
+    card.append(h2hEl);
   }
 
   return card;
