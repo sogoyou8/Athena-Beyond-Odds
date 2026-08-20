@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.12
+> **Version :** 2.13
 
 # Decision Log
 
@@ -1286,3 +1286,37 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 8. **DEC-033.8 — Optimisation et intégration Application :** Réutilisation de l'index request-scoped `historyByTeam: Map<string, Match[]>` dans `ListAnalyticalMatchesUseCase`. Enrichissement du DTO sous `/analysis` avec le nœud `momentum`. Route `/matches` inchangée. Dégradation locale propre vers `UNAVAILABLE` en cas d'échec du flux historique.
 9. **DEC-033.9 — Frontend et neutralité visuelle :** Bloc « Dynamique récente » par carte avec affichage du format de fenêtre (3v3, 4v4, 5v5), valeurs Avant/Récent/Écart formatées à 2 décimales. Normalisation anti-`-0.00`. Présentation neutre (pas de couleur vert/rouge sur les deltas). 9 états globaux inchangés.
 10. **DEC-033.10 — Plan de validation et suites :** 30 scénarios de tests unitaires spécifiés, tests d'intégration `/analysis` et tests de rendu frontend. L'implémentation logicielle fera l'objet d'une autorisation formelle séparée après fusion de DEC-033.
+
+---
+
+## Phase 3.6 — Clôture et verrouillage
+
+- **Date de clôture :** 2026-08-21
+- **Responsable :** Fondateur ABYSS
+- **Statut :** ✅ CLOSE ET VERROUILLÉE
+
+### Chaîne complète Phase 3.6
+
+| Étape | Référence | SHA / PR | Statut |
+|---|---|---|---|
+| Cadrage produit | DEC-032 | PR #42 | ✅ Fusionné |
+| Conception technique | DEC-033 | PR #43 | ✅ Fusionné |
+| Gate A faisabilité | Audit read-only | — | ✅ CONFORME |
+| Implémentation (3 commits) | PR #44 | `e57246a` | ✅ Fusionné |
+
+### Socle final
+
+- **SHA de référence :** `e57246a2fc2ab72b3212d1a794e5790441476b3d`
+- **Branche base :** `architecture/phase-2-technical-design`
+- **Tests :** 336/336 ✅ (baseline 314 → +22)
+- **Branche source conservée :** `implementation/phase-3-6-momentum`
+
+### Bilan des signaux descriptifs ATHENA (v1)
+
+| Signal | Phase | DEC | Statut |
+|---|---|---|---|
+| Form 5 | 3.1 / 3.2 | DEC-019 | ✅ Live |
+| Season Strength | 3.3 | DEC-024 | ✅ Live |
+| H2H contextualisé | 3.4 | DEC-027 | ✅ Live |
+| Repos & Congestion | 3.5 | DEC-029 / DEC-030 | ✅ Live |
+| Momentum descriptif | 3.6 | DEC-032 / DEC-033 | ✅ Live |
