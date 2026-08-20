@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.13
+> **Version :** 2.14
 
 # Decision Log
 
@@ -1289,34 +1289,29 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 
 ---
 
-## Phase 3.6 — Clôture et verrouillage
+## DEC-034 — Phase 3.6 — Clôture et régularisation Momentum
 
-- **Date de clôture :** 2026-08-21
+- **Date :** 2026-08-21
 - **Responsable :** Fondateur ABYSS
-- **Statut :** ✅ CLOSE ET VERROUILLÉE
+- **Statut :** Approuvée par le Fondateur
+- **Documents de référence :**
+  - `docs/03-technical-architecture/phase-3-6-momentum-closure.md`
+  - `docs/03-technical-architecture/phase-3-6-momentum-technical-design.md` (DEC-033)
+  - `docs/03-technical-architecture/phase-3-6-momentum-framing.md` (DEC-032)
+  - Validation Chromium humaine du 2026-08-21 (Conforme)
 
-### Chaîne complète Phase 3.6
+### 1. Objet et régularisation historique
+La version 2.13 du Decision Log (commit direct `9fc1b03` sur la branche principale) avait consigné prématurément la clôture de la Phase 3.6 après la fusion de la PR #44. Cette déclaration n'était pas encore étayée par la consignation complète de la validation Chromium humaine et n'avait pas fait l'objet d'une décision de clôture documentaire dédiée. DEC-034 régularise cette situation de manière transparente sans réécriture de l'historique Git.
 
-| Étape | Référence | SHA / PR | Statut |
-|---|---|---|---|
-| Cadrage produit | DEC-032 | PR #42 | ✅ Fusionné |
-| Conception technique | DEC-033 | PR #43 | ✅ Fusionné |
-| Gate A faisabilité | Audit read-only | — | ✅ CONFORME |
-| Implémentation (3 commits) | PR #44 | `e57246a` | ✅ Fusionné |
-
-### Socle final
-
-- **SHA de référence :** `e57246a2fc2ab72b3212d1a794e5790441476b3d`
-- **Branche base :** `architecture/phase-2-technical-design`
-- **Tests :** 336/336 ✅ (baseline 314 → +22)
-- **Branche source conservée :** `implementation/phase-3-6-momentum`
-
-### Bilan des signaux descriptifs ATHENA (v1)
-
-| Signal | Phase | DEC | Statut |
-|---|---|---|---|
-| Form 5 | 3.1 / 3.2 | DEC-019 | ✅ Live |
-| Season Strength | 3.3 | DEC-024 | ✅ Live |
-| H2H contextualisé | 3.4 | DEC-027 | ✅ Live |
-| Repos & Congestion | 3.5 | DEC-029 / DEC-030 | ✅ Live |
-| Momentum descriptif | 3.6 | DEC-032 / DEC-033 | ✅ Live |
+### 2. Clôture formelle de la Phase 3.6
+1. **Implémentation validée (PR #44) :** Merge commit `e57246a2fc2ab72b3212d1a794e5790441476b3d`. Service pur `MomentumCalculator`, value objects `MomentumProfile` / `MomentumWindow`, intégration dans `ListAnalyticalMatchesUseCase` via l'index mémoire request-scoped `historyByTeam`.
+2. **Contrats & Règles métier :** Fenêtres adaptatives 3v3 / 4v4 / 5v5 (seuil minimum 6 matchs éligibles), fenêtres consécutives sans chevauchement, étanchéité stricte `TARGET_SEASON_ONLY`, filtrage `FINISHED` + score `fullTime` non nul, tri déterministe `utcDate DESC` puis `Match.id DESC`.
+3. **Neutralité visuelle :** Bloc « Dynamique récente », formatage UI à 2 décimales, aucun score composite, aucune classification qualitative `UP`/`DOWN`, aucun badge prédictif, absence de colorisation sémantique sur les deltas.
+4. **Validation technique & Chromium :**
+   - 27 fichiers de tests, **336/336 tests passants** (+22 tests par rapport à la baseline 314).
+   - Typechecks serveur/client et build au vert, 0 appel réseau réel.
+   - Validation visuelle humaine Chromium conforme (Desktop Dark/Light, Mobile 390×635 sans overflow critique, console propre, réseau local sans polling, simulation `/analysis` bloqué avec retry manuel opérationnel et restauration complète).
+   - Réserve non bloquante : `CHROMIUM_5V5 = NOT_EXPOSED_NON_BLOCKING` (fixtures InMemory $\le 9$ matchs), logique 5v5 couverte par tests automatisés (`WINDOW_5V5_AUTOMATED_TESTS = PASS`).
+5. **Budgets & Providers préservés :** `SportsDataProvider` et `HistoryFilter` inchangés, 0 nouvel appel provider, hard max HTTP $\le 5$, complexité réseau $O(1)$ sans N+1.
+6. **Socle analytique ATHENA (5 briques) :** Form 5, Season Strength, H2H contextualisé, Repos & Congestion, Momentum descriptif. Ces 5 briques constituent des signaux purement descriptifs (aucun modèle prédictif, aucune probabilité, aucun Kelly/EV).
+7. **Suite du projet :** La Phase 3.6 est officiellement **CLOSE**. L'orientation de la suite fera l'objet d'un arbitrage Fondateur séparé.
