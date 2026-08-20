@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.10
+> **Version :** 2.11
 
 # Decision Log
 
@@ -1239,3 +1239,25 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 8. **DEC-031.8 — Fusion et traçabilité Git :** PR d'implémentation #40 fusionnée par `Create a merge commit` (`d3967a6d37781eea48d2efe4c956840f0c9e80b1`), branche source `implementation/phase-3-5-rest-congestion` conservée sur le remote.
 9. **DEC-031.9 — Absence de pouvoir prédictif :** La brique Repos & Congestion reste un composant purement descriptif. Elle ne produit aucune cote, probabilité, EV, Kelly, score synthétique de fatigue ni Decision Engine.
 10. **DEC-031.10 — Suites et prochaine étape :** Aucune phase analytique ultérieure (Phase 3.6+) n'est ouverte automatiquement. La prochaine brique fera l'objet d'un cadrage et d'un arbitrage formel séparé par le Fondateur.
+
+---
+
+## DEC-032 — Phase 3.6 — Cadrage de Momentum descriptif / Dynamique récente
+
+- **Date :** 2026-08-20
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Document de référence :** `docs/03-technical-architecture/phase-3-6-momentum-framing.md`
+
+### Résumé des arbitrages de cadrage DEC-032
+
+1. **DEC-032.1 — Ouverture officielle de la Phase 3.6 :** La Phase 3.6 « Momentum descriptif / Dynamique récente » est ouverte en cadrage produit. Aucun code, aucune conception technique détaillée (DEC-033), aucun appel provider réel n'est autorisé à ce stade.
+2. **DEC-032.2 — Nom et différenciation avec Form 5 (OQ-055 / OQ-057) :** Nom officiel retenu : **Momentum descriptif** (`DESCRIPTIVE_MOMENTUM`), intitulé **« Dynamique récente »** en UI. Différenciation nette : Form 5 rapporte les résultats bruts récents, tandis que Momentum compare deux périodes consécutives pour mesurer une variation de rythme.
+3. **DEC-032.3 — Nature et interdictions strictes (OQ-056 / OQ-064 / OQ-065 / OQ-081) :** Brique factuelle, déterministe, explicable, non prédictive. Scores composites (`momentumScore`), directions qualitatives arbitraires (`UP`/`DOWN`), probabilités, Value, EV et Kelly formellement interdits.
+4. **DEC-032.4 — Modèle de fenêtres adaptatives de taille égale (OQ-058 / OQ-059) :** Deux fenêtres adjacentes sans chevauchement : `windowSize = min(5, floor(eligibleMatches / 2))` avec `windowSize >= 3`. Échantillonnage : 3v3 (6-7 matchs), 4v4 (8-9 matchs), 5v5 ($\ge 10$ matchs). Moins de 6 matchs $\implies$ `INSUFFICIENT_DATA`.
+5. **DEC-032.5 — Éligibilité des matchs et frontière de saison (OQ-066 à OQ-069) :** Même compétition uniquement (`FINISHED`), score `fullTime` complet requis, coupure stricte `utcDate < targetMatch.utcDate`. Politique de saison stricte : `TARGET_SEASON_ONLY` (aucun carryover N-1, N-1 et N-2 exclus). Pas de segmentation domicile/extérieur en v1 (`OVERALL_ONLY`).
+6. **DEC-032.6 — Métriques et DTO conceptuel (OQ-060 à OQ-063 / OQ-080) :** DTO `MomentumProfile` à deux sous-structures `MomentumWindow` (`sampleSize`, `pointsPerMatch`, `goalsForPerMatch`, `goalsAgainstPerMatch`, `goalDifferencePerMatch`). Deltas descriptifs : `pointsPerMatchDelta` et `goalDifferencePerMatchDelta`. Zéro réel valide quand `AVAILABLE`, `null` sans faux zéro si `INSUFFICIENT_DATA`.
+7. **DEC-032.7 — Périmètres exclus en v1 (OQ-070 / OQ-071) :** Séries (streaks) et ajustement par la force de l'adversaire (Strength of Schedule) exclus de la v1.
+8. **DEC-032.8 — Architecture cible et budgets réseau (OQ-073 à OQ-076) :** Intention de réutiliser le flux historique mutualisé 3 saisons existant sans modification de `SportsDataProvider` ni `HistoryFilter`. Budgets cibles maintenus ($\le 2$ invocations application, hard max $\le 5$ HTTP, 0 extra HTTP, complexité $O(1)$ sans N+1). `MomentumCalculator` pur et déterministe.
+9. **DEC-032.9 — Frontend cible et neutralité visuelle (OQ-078 / OQ-079) :** Bloc « Dynamique récente » par carte avec affichage du format de fenêtre (3v3, 4v4, 5v5), valeurs Avant/Récent/Écart pour PPM et GD/m. Présentation visuelle neutre (pas de colorisation binaire automatique vert/rouge sur les deltas). 9 états globaux inchangés.
+10. **DEC-032.10 — Prochaine étape :** Gate A technique obligatoire après fusion de DEC-032 pour prouver formellement que le corpus mutualisé existant supporte $\ge 10$ matchs par équipe dans la saison cible sans requête réseau additionnelle, avant tout engagement en conception technique (DEC-033).
