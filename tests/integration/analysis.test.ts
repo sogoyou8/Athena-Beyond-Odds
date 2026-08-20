@@ -425,4 +425,113 @@ describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-0
     expect(third.scheduleLoad.away.minimumRestDaysInLast14Days).toBeNull();
     expect(third.scheduleLoad.away.shortRest).toBeNull();
   });
+
+  it('DEC-033: returns momentum structure (home and away) on each match entry', async () => {
+    const res = await request(app)
+      .get('/competitions/FL1/matches/analysis')
+      .expect(200);
+
+    const first = res.body.matches[0];
+    expect(first).toHaveProperty('momentum');
+    expect(first.momentum).toHaveProperty('home');
+    expect(first.momentum).toHaveProperty('away');
+
+    // Home: Alpha has 8+ FINISHED matches in current season before target date -> AVAILABLE
+    const homeMomentum = first.momentum.home;
+    expect(homeMomentum.availability).toBe('AVAILABLE');
+    expect(homeMomentum.windowSize).toBeGreaterThanOrEqual(3);
+    expect(homeMomentum.windowSize).toBeLessThanOrEqual(5);
+    expect(homeMomentum.recent).not.toBeNull();
+    expect(homeMomentum.previous).not.toBeNull();
+    expect(homeMomentum.recent.sampleSize).toBe(homeMomentum.windowSize);
+    expect(homeMomentum.previous.sampleSize).toBe(homeMomentum.windowSize);
+    expect(typeof homeMomentum.pointsPerMatchDelta).toBe('number');
+    expect(typeof homeMomentum.goalDifferencePerMatchDelta).toBe('number');
+    expect(typeof homeMomentum.recent.pointsPerMatch).toBe('number');
+    expect(typeof homeMomentum.recent.goalsForPerMatch).toBe('number');
+    expect(typeof homeMomentum.recent.goalsAgainstPerMatch).toBe('number');
+    expect(typeof homeMomentum.recent.goalDifferencePerMatch).toBe('number');
+    // Pas de score composite, pas de direction
+    expect(homeMomentum).not.toHaveProperty('momentumScore');
+    expect(homeMomentum).not.toHaveProperty('direction');
+  });
+
+  it('DEC-033: momentum UNAVAILABLE when history fetch fails', async () => {
+    const failingProvider: SportsDataProvider = {
+      getCompetitions: async () => [],
+      getMatches: async (_code, from, _to, hist) => {
+        if (!from && !_to && hist) throw new Error('HISTORY_FAIL');
+        // Return a scheduled match
+        return [
+          {
+            id: 'match-fail-001',
+            competitionId: 'FL1',
+            seasonId: 'season-2099',
+            matchday: 1,
+            utcDate: new Date('2099-12-01T20:00:00.000Z'),
+            status: 'SCHEDULED' as const,
+            homeTeam: { id: 'team-x', name: 'Team X', shortName: 'X', tla: 'X', crestUrl: null, providerMetadata: { providerName: 'test', externalId: 'x', lastUpdated: new Date() } },
+            awayTeam: { id: 'team-y', name: 'Team Y', shortName: 'Y', tla: 'Y', crestUrl: null, providerMetadata: { providerName: 'test', externalId: 'y', lastUpdated: new Date() } },
+            score: { halfTime: { home: null, away: null }, fullTime: { home: null, away: null } },
+            providerMetadata: { providerName: 'test', externalId: 'match-fail-001', lastUpdated: new Date() },
+          } as Match,
+        ];
+      },
+      getMatchDetails: async () => { throw new Error('not implemented'); },
+    };
+
+    const appWithFail = createApp(failingProvider);
+    const res = await request(appWithFail)
+      .get('/competitions/FL1/matches/analysis')
+      .expect(200);
+
+    const entry = res.body.matches[0];
+    expect(entry.momentum.home.availability).toBe('UNAVAILABLE');
+    expect(entry.momentum.away.availability).toBe('UNAVAILABLE');
+    expect(entry.momentum.home.windowSize).toBeNull();
+    expect(entry.momentum.away.windowSize).toBeNull();
+    expect(entry.momentum.home.recent).toBeNull();
+    expect(entry.momentum.away.recent).toBeNull();
+    // History failure does not break HTTP 200
+    expect(res.status).toBe(200);
+    // Other briques also UNAVAILABLE
+    expect(entry.form.home.availability).toBe('UNAVAILABLE');
+    expect(entry.scheduleLoad.home.availability).toBe('UNAVAILABLE');
+  });
+
+  it('DEC-033: momentum INSUFFICIENT_DATA for teams with fewer than 6 eligible matches', async () => {
+    const res = await request(app)
+      .get('/competitions/FL1/matches/analysis')
+      .expect(200);
+
+    // Match 3: Epsilon vs Zeta. Zeta has no historical matches -> INSUFFICIENT_DATA
+    const third = res.body.matches[2];
+    expect(third).toHaveProperty('momentum');
+    const awayMomentum = third.momentum.away;
+    expect(awayMomentum.availability).toBe('INSUFFICIENT_DATA');
+    expect(awayMomentum.windowSize).toBeNull();
+    expect(awayMomentum.recent).toBeNull();
+    expect(awayMomentum.previous).toBeNull();
+    expect(awayMomentum.pointsPerMatchDelta).toBeNull();
+    expect(awayMomentum.goalDifferencePerMatchDelta).toBeNull();
+  });
+
+  it('DEC-033: existing briques (Form, SeasonStrength, H2H, ScheduleLoad) preserved when momentum added', async () => {
+    const res = await request(app)
+      .get('/competitions/FL1/matches/analysis')
+      .expect(200);
+
+    const first = res.body.matches[0];
+    // Form still present and correct
+    expect(first.form.home.availability).toBe('AVAILABLE');
+    expect(first.form.home.results).toHaveLength(5);
+    // Season Strength still present
+    expect(first.seasonStrength.home.overall.availability).toBe('AVAILABLE');
+    // H2H still present
+    expect(first.headToHead.overall.availability).toMatch(/AVAILABLE|INSUFFICIENT_DATA/);
+    // Schedule Load still present
+    expect(first.scheduleLoad.home.availability).toBe('AVAILABLE');
+    // Momentum added, does not replace existing
+    expect(first.momentum.home).toBeDefined();
+  });
 });

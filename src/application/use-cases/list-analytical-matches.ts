@@ -33,10 +33,12 @@ import { TeamForm } from '../../domain/value-objects/form-result.js';
 import { SeasonStrengthProfile } from '../../domain/value-objects/season-strength-profile.js';
 import { HeadToHeadProfile } from '../../domain/value-objects/head-to-head-profile.js';
 import { ScheduleLoadProfile } from '../../domain/value-objects/schedule-load-profile.js';
+import { MomentumProfile } from '../../domain/value-objects/momentum-profile.js';
 import { FormCalculator } from '../../domain/services/form-calculator.js';
 import { SeasonStrengthCalculator } from '../../domain/services/season-strength-calculator.js';
 import { HeadToHeadCalculator } from '../../domain/services/head-to-head-calculator.js';
 import { ScheduleLoadCalculator } from '../../domain/services/schedule-load-calculator.js';
+import { MomentumCalculator } from '../../domain/services/momentum-calculator.js';
 import { CompetitionNotAvailableError } from './list-scheduled-matches.js';
 import { addUtcDays } from '../../shared/date-utils.js';
 
@@ -59,6 +61,10 @@ export interface AnalyticalMatchEntry {
     home: ScheduleLoadProfile;
     away: ScheduleLoadProfile;
   };
+  momentum: {
+    home: MomentumProfile;
+    away: MomentumProfile;
+  };
 }
 
 export interface AnalyticalMatchesResult {
@@ -75,6 +81,7 @@ export class ListAnalyticalMatchesUseCase {
   private readonly seasonStrengthCalculator = new SeasonStrengthCalculator();
   private readonly headToHeadCalculator = new HeadToHeadCalculator();
   private readonly scheduleLoadCalculator = new ScheduleLoadCalculator();
+  private readonly momentumCalculator = new MomentumCalculator();
   private readonly clockFn: () => Date;
 
   constructor(
@@ -85,13 +92,13 @@ export class ListAnalyticalMatchesUseCase {
   }
 
   /**
-   * Retourne les matchs SCHEDULED enrichis de Form 5, Season Strength, H2H et Repos & Congestion.
+   * Retourne les matchs SCHEDULED enrichis de Form 5, Season Strength, H2H, Repos & Congestion et Momentum.
    *
-   * Conformément à DEC-020, DEC-024, DEC-027 et DEC-030 :
+   * Conformément à DEC-020, DEC-024, DEC-027, DEC-030 et DEC-033 :
    * 1. Appel principal : `provider.getMatches(code, now, now+7j)` avec fenêtre explicite.
    * 2. Appel mutualisé : 1 SEUL `provider.getMatches(code, undefined, undefined, { seasonCount: 3 })`
-   *    => corpus multi-saison partagé par Form5, SeasonStrength, H2H ET ScheduleLoad.
-   * 3. Dégradation M-002 étendu : si l'appel mutualisé échoue, Form/SeasonStrength/H2H/ScheduleLoad = UNAVAILABLE.
+   *    => corpus multi-saison partagé par Form5, SeasonStrength, H2H, ScheduleLoad ET Momentum.
+   * 3. Dégradation M-002 étendu : si l'appel mutualisé échoue, Form/SeasonStrength/H2H/ScheduleLoad/Momentum = UNAVAILABLE.
    *
    * Budget d'invocations logiques : ≤2 (application level).
    * Budget de requêtes HTTP amont : ≤5 sur cold path (1 SCHEDULED + 1 courante + 2 historiques).
@@ -120,9 +127,9 @@ export class ListAnalyticalMatchesUseCase {
     }
 
     // -----------------------------------------------------------------------
-    // Étape 2 : Récupération historique MUTUALISÉE (DEC-027 / DEC-030 / M-001)
+    // Étape 2 : Récupération historique MUTUALISÉE (DEC-027 / DEC-030 / DEC-033 / M-001)
     // Invocation logique #2 — avec historyFilter pour couvrir jusqu'à 3 saisons.
-    // Ce même flux est partagé entre FormCalculator, SeasonStrengthCalculator, HeadToHeadCalculator ET ScheduleLoadCalculator.
+    // Ce même flux est partagé entre FormCalculator, SeasonStrengthCalculator, HeadToHeadCalculator, ScheduleLoadCalculator ET MomentumCalculator.
     // -----------------------------------------------------------------------
     let historicalMatches: Match[] | null = null;
 
@@ -139,7 +146,7 @@ export class ListAnalyticalMatchesUseCase {
     }
 
     // -----------------------------------------------------------------------
-    // Étape 3 : Calculer Form 5, Season Strength, H2H et Schedule Load pour chaque match SCHEDULED
+    // Étape 3 : Calculer Form 5, Season Strength, H2H, Schedule Load et Momentum pour chaque match SCHEDULED
     // Si l'historique est indisponible (historicalMatches === null), statut = UNAVAILABLE.
     // -----------------------------------------------------------------------
     const unavailableH2H: HeadToHeadProfile = {
@@ -176,7 +183,16 @@ export class ListAnalyticalMatchesUseCase {
       shortRest: null,
     };
 
-    // Optimisation locale d'Application (DEC-030 §7 / §8) : Indexation request-scoped par équipe
+    const unavailableMomentum: MomentumProfile = {
+      availability: 'UNAVAILABLE',
+      windowSize: null,
+      recent: null,
+      previous: null,
+      pointsPerMatchDelta: null,
+      goalDifferencePerMatchDelta: null,
+    };
+
+    // Optimisation locale d'Application (DEC-030 §7 / §8 / DEC-033 §28) : Indexation request-scoped par équipe
     const historyByTeam = new Map<string, Match[]>();
     if (historicalMatches !== null) {
       for (const m of historicalMatches) {
@@ -195,6 +211,8 @@ export class ListAnalyticalMatchesUseCase {
       let headToHead: HeadToHeadProfile;
       let homeScheduleLoad: ScheduleLoadProfile;
       let awayScheduleLoad: ScheduleLoadProfile;
+      let homeMomentum: MomentumProfile;
+      let awayMomentum: MomentumProfile;
 
       if (historicalMatches !== null) {
         // Calcul Form 5
@@ -248,6 +266,18 @@ export class ListAnalyticalMatchesUseCase {
           match,
           awayHistory
         );
+
+        // Calcul Momentum / Dynamique récente (DEC-032 / DEC-033 Phase 3.6)
+        homeMomentum = this.momentumCalculator.calculate(
+          match.homeTeam.id,
+          match,
+          homeHistory
+        );
+        awayMomentum = this.momentumCalculator.calculate(
+          match.awayTeam.id,
+          match,
+          awayHistory
+        );
       } else {
         // M-002 étendu : Dégradation gracieuse si échec historique
         homeForm = {
@@ -295,6 +325,8 @@ export class ListAnalyticalMatchesUseCase {
         headToHead = unavailableH2H;
         homeScheduleLoad = unavailableScheduleLoad;
         awayScheduleLoad = unavailableScheduleLoad;
+        homeMomentum = unavailableMomentum;
+        awayMomentum = unavailableMomentum;
       }
 
       return {
@@ -303,6 +335,7 @@ export class ListAnalyticalMatchesUseCase {
         seasonStrength: { home: homeSeasonStrength, away: awaySeasonStrength },
         headToHead,
         scheduleLoad: { home: homeScheduleLoad, away: awayScheduleLoad },
+        momentum: { home: homeMomentum, away: awayMomentum },
       };
     });
 
