@@ -14,6 +14,7 @@ import { ListAnalyticalMatchesUseCase } from '../../application/use-cases/list-a
 import { CompetitionNotAvailableError } from '../../application/use-cases/list-scheduled-matches.js';
 import {
   ProviderRateLimitError,
+  ProviderRequestRejectedError,
   ProviderUnavailableError,
 } from '../../application/errors/index.js';
 
@@ -41,6 +42,12 @@ export function createAnalysisRouter(
 
         if (error instanceof ProviderRateLimitError) {
           res.status(429).json({ error: 'PROVIDER_RATE_LIMIT' });
+          return;
+        }
+
+        // DEC-021 : rejet HTTP 400 upstream — même contrat public 503 (aucun diagnostic exposé au client)
+        if (error instanceof ProviderRequestRejectedError) {
+          res.status(503).json({ error: 'PROVIDER_UNAVAILABLE' });
           return;
         }
 

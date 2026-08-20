@@ -153,4 +153,97 @@ describe('GET /competitions/FL1/matches/analysis (Form 5)', () => {
       expect(m.status).toBe('SCHEDULED');
     }
   });
+
+  // ================================================================
+  // DEC-021 — ProviderRequestRejectedError (HTTP 400) route tests
+  // ================================================================
+
+  it('DEC-021: primary ProviderRequestRejectedError returns HTTP 503 PROVIDER_UNAVAILABLE without upstream diagnostic in body', async () => {
+    const { ProviderRequestRejectedError } = await import('../../src/application/errors/index.js');
+    const innerProvider = new InMemorySportsDataProvider();
+    let callIndex = 0;
+
+    const rejectingPrimaryProvider: SportsDataProvider = {
+      getCompetitions(): Promise<Competition[]> {
+        return innerProvider.getCompetitions();
+      },
+      async getMatches(code: string, fromDate?: Date, toDate?: Date): Promise<Match[]> {
+        callIndex++;
+        if (callIndex === 1) {
+          // Primary call: simulate HTTP 400 rejection
+          throw new ProviderRequestRejectedError(
+            'Requête rejetée par football-data.org (HTTP 400)',
+            { upstreamStatus: 400, providerMessage: 'date filter not supported', providerCode: 'ERR_DATE' }
+          );
+        }
+        return innerProvider.getMatches(code, fromDate, toDate);
+      },
+      getMatchDetails(id: string): Promise<Match> {
+        return innerProvider.getMatchDetails(id);
+      },
+    };
+
+    const testApp = createApp(rejectingPrimaryProvider, {
+      clockFn: () => IN_MEMORY_REFERENCE_NOW,
+    });
+
+    const res = await request(testApp)
+      .get('/competitions/FL1/matches/analysis')
+      .expect(503);
+
+    // Contrat public inchangé — aucun diagnostic upstream exposé
+    expect(res.body).toEqual({ error: 'PROVIDER_UNAVAILABLE' });
+    expect(JSON.stringify(res.body)).not.toContain('date filter not supported');
+    expect(JSON.stringify(res.body)).not.toContain('ERR_DATE');
+    expect(JSON.stringify(res.body)).not.toContain('400');
+    expect(JSON.stringify(res.body)).not.toContain('providerMessage');
+    expect(JSON.stringify(res.body)).not.toContain('providerCode');
+  });
+
+  it('DEC-021 + M-002: historical ProviderRequestRejectedError produces HTTP 200 with UNAVAILABLE form (graceful degradation)', async () => {
+    const { ProviderRequestRejectedError } = await import('../../src/application/errors/index.js');
+    const innerProvider = new InMemorySportsDataProvider();
+    let callIndex = 0;
+
+    const rejectingHistoricalProvider: SportsDataProvider = {
+      getCompetitions(): Promise<Competition[]> {
+        return innerProvider.getCompetitions();
+      },
+      async getMatches(code: string, fromDate?: Date, toDate?: Date): Promise<Match[]> {
+        callIndex++;
+        if (callIndex === 1) {
+          // Primary call succeeds
+          return innerProvider.getMatches(code, fromDate, toDate);
+        }
+        // Historical call: simulate HTTP 400 rejection (DEC-021 + M-002)
+        throw new ProviderRequestRejectedError(
+          'Requête rejetée par football-data.org (HTTP 400)',
+          { upstreamStatus: 400, providerMessage: 'season boundary exceeded' }
+        );
+      },
+      getMatchDetails(id: string): Promise<Match> {
+        return innerProvider.getMatchDetails(id);
+      },
+    };
+
+    const testApp = createApp(rejectingHistoricalProvider, {
+      clockFn: () => IN_MEMORY_REFERENCE_NOW,
+    });
+
+    const res = await request(testApp)
+      .get('/competitions/FL1/matches/analysis')
+      .expect(200);
+
+    // M-002: matches conservés, form UNAVAILABLE
+    expect(res.body.matches).toHaveLength(3);
+    for (const entry of res.body.matches) {
+      expect(entry.form.home.availability).toBe('UNAVAILABLE');
+      expect(entry.form.home.results).toEqual([]);
+      expect(entry.form.away.availability).toBe('UNAVAILABLE');
+      expect(entry.form.away.results).toEqual([]);
+    }
+    // Aucun diagnostic upstream exposé dans la réponse
+    expect(JSON.stringify(res.body)).not.toContain('season boundary exceeded');
+    expect(JSON.stringify(res.body)).not.toContain('providerMessage');
+  });
 });

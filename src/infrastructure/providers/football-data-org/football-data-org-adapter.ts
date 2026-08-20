@@ -24,6 +24,7 @@ import { SportsDataProvider } from '../../../application/ports/sports-data-provi
 import {
   NotImplementedError,
   ProviderRateLimitError,
+  ProviderRequestRejectedError,
   ProviderUnavailableError,
 } from '../../../application/errors/index.js';
 import { Competition } from '../../../domain/entities/competition.js';
@@ -49,6 +50,70 @@ export type HttpFetchFn = (
 
 export type ClockFn = () => Date;
 export type DurationClockFn = () => number;
+
+/**
+ * Sanitise un texte candidat issu d'un body d'erreur provider (DEC-021).
+ *
+ * - Accepte uniquement des primitives ; rejette les objets et tableaux.
+ * - Supprime les caractères de contrôle (0x00-0x1F, 0x7F) sauf espace (0x20).
+ * - Tronque à 256 caractères maximum.
+ * - Retourne undefined si le résultat est vide.
+ *
+ * Ne reçoit jamais de token, d'en-tête ou de variable d'environnement.
+ */
+export function sanitizeProviderText(
+  raw: unknown,
+  maxLength: number = 256
+): string | undefined {
+  if (
+    raw === null ||
+    raw === undefined ||
+    typeof raw === 'object' ||
+    typeof raw === 'function'
+  ) {
+    return undefined;
+  }
+  const str = String(raw)
+    // Supprime les caractères de contrôle (incl. \r\n\t) sauf espace
+    .replace(/[\x00-\x1F\x7F]+/g, ' ')
+    .trim();
+  if (str.length === 0) {
+    return undefined;
+  }
+  return str.length > maxLength ? str.slice(0, maxLength) : str;
+}
+
+/**
+ * Extrait un diagnostic sanitisé depuis le body JSON d'une réponse HTTP 400 (DEC-021).
+ *
+ * - Lit le body UNE seule fois.
+ * - Inspecte uniquement les champs de la whitelist dans l'ordre : message > error > errorCode > code.
+ * - Ne stocke pas le raw body.
+ * - En cas d'échec de parsing JSON, retourne un diagnostic générique.
+ * - N'injecte jamais token, headers ou variables d'environnement.
+ */
+export async function extractRejectionDiagnostic(response: Response): Promise<{
+  providerMessage: string | undefined;
+  providerCode: string | undefined;
+}> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const body: any = await response.json();
+    // Whitelist strictément limitée (DEC-021.4)
+    const message = sanitizeProviderText(body?.message);
+    const error = sanitizeProviderText(body?.error);
+    const errorCode = sanitizeProviderText(body?.errorCode, 64);
+    const code = sanitizeProviderText(body?.code, 64);
+    // Le raw body est abandonné immédiatement après cette extraction
+    return {
+      providerMessage: message ?? error ?? undefined,
+      providerCode: errorCode ?? code ?? undefined,
+    };
+  } catch {
+    // Parsing échoué : diagnostic générique, aucun raw texte conservé
+    return { providerMessage: undefined, providerCode: undefined };
+  }
+}
 
 export interface FootballDataOrgAdapterOptions {
   apiKey?: string;
@@ -254,6 +319,25 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
       });
       throw new ProviderUnavailableError(
         `Authentification refusée par football-data.org (HTTP ${response.status})`
+      );
+    }
+
+    if (response.status === 400) {
+      const durationMs = getDurationMs();
+      // Lecture unique du body d'erreur pour extraction diagnostique sécurisée (DEC-021)
+      const { providerMessage, providerCode } = await extractRejectionDiagnostic(response);
+      // Le raw body est abandonné ici ; seuls les champs sanitisés sont conservés.
+      safeObserve(this.observer, {
+        type: 'provider_request_rejected',
+        competitionCode,
+        durationMs,
+        upstreamStatus: 400,
+        providerCode,
+        providerMessage,
+      });
+      throw new ProviderRequestRejectedError(
+        'Requête rejetée par football-data.org (HTTP 400)',
+        { upstreamStatus: 400, providerMessage, providerCode }
       );
     }
 

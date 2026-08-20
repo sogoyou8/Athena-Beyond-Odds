@@ -10,8 +10,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { FootballDataOrgAdapter } from '../../src/infrastructure/providers/football-data-org/football-data-org-adapter.js';
 import {
   ProviderRateLimitError,
+  ProviderRequestRejectedError,
   ProviderUnavailableError,
 } from '../../src/application/errors/index.js';
+import {
+  sanitizeProviderText,
+} from '../../src/infrastructure/providers/football-data-org/football-data-org-adapter.js';
 
 describe('FootballDataOrgAdapter (Unit Tests)', () => {
   const fixedNow = new Date('2026-07-30T12:00:00.000Z');
@@ -647,5 +651,197 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
       expect(matches[0].competitionId).not.toBe('FIXED_FL1_LITERAL');
     });
   });
-});
+  // ================================================================
+  // DEC-021 — ProviderRequestRejectedError (HTTP 400)
+  // Tous ces tests utilisent mockFetch — aucun appel réseau réel.
+  // ================================================================
+  describe('DEC-021 — ProviderRequestRejectedError (HTTP 400)', () => {
 
+    const makeAdapter = (fetchFn: ReturnType<typeof vi.fn>) =>
+      new FootballDataOrgAdapter({
+        apiKey: 'test-key-never-exposed',
+        fetchFn,
+        clockFn: mockClock,
+      });
+
+    // A. Body JSON avec champ message
+    it('A. l\'ve ProviderRequestRejectedError avec providerMessage extrait du champ message', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: 'invalid date range' }), { status: 400 })
+      );
+      const err = await makeAdapter(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      expect(err.upstreamStatus).toBe(400);
+      expect(err.providerMessage).toBe('invalid date range');
+    });
+
+    // B. Caractères de contrôle / newline dans le message
+    it('B. sanitise les caractères de contrôle et newlines du providerMessage', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: 'bad\nrequest\x00injected' }), { status: 400 })
+      );
+      const err = await makeAdapter(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      // Aucun \n ni \x00 dans le message sanitisé
+      expect(err.providerMessage).not.toMatch(/\n|\r|\x00/);
+    });
+
+    // C. Message > 256 caractères -> tronqué
+    it('C. tronque providerMessage à 256 caractères maximum', async () => {
+      const longMsg = 'x'.repeat(300);
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: longMsg }), { status: 400 })
+      );
+      const err = await makeAdapter(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      expect(err.providerMessage!.length).toBeLessThanOrEqual(256);
+    });
+
+    // D. Champ error sans message -> fallback whitelist
+    it('D. utilise le champ error comme fallback si message est absent', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: 'DATE_FILTER_UNSUPPORTED' }), { status: 400 })
+      );
+      const err = await makeAdapter(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      expect(err.providerMessage).toBe('DATE_FILTER_UNSUPPORTED');
+    });
+
+    // E. Champ errorCode -> providerCode extrait
+    it('E. extrait providerCode depuis le champ errorCode', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: 'err', errorCode: 'ERR_DATES' }), { status: 400 })
+      );
+      const err = await makeAdapter(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      expect(err.providerCode).toBe('ERR_DATES');
+    });
+
+    // F. Aucun champ whitelist -> diagnostic générique
+    it('F. l\'ve ProviderRequestRejectedError avec diagnostic générique si aucun champ whitelist', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ unrelated: 'data', deep: { obj: true } }), { status: 400 })
+      );
+      const err = await makeAdapter(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      expect(err.providerMessage).toBeUndefined();
+      expect(err.providerCode).toBeUndefined();
+    });
+
+    // G. Body non JSON -> ProviderRequestRejectedError sans parsing secondaire
+    it('G. body non-JSON -> ProviderRequestRejectedError sans erreur secondaire, aucun raw text', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response('Plain text error not JSON', { status: 400 })
+      );
+      const err = await makeAdapter(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      expect(err.providerMessage).toBeUndefined();
+      // Le message général ne contient pas le raw text
+      expect(err.message).not.toContain('Plain text error not JSON');
+    });
+
+    // H. Objet/array dans un champ whitelist -> ignoré
+    it('H. ignore les objets et tableaux dans les champs whitelist', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ message: { nested: 'object' }, error: ['array'] }),
+          { status: 400 }
+        )
+      );
+      const err = await makeAdapter(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      // Ni le JSON de l'objet ni celui du tableau ne doivent être dans le diagnostic
+      expect(err.providerMessage).toBeUndefined();
+    });
+
+    // I. La clé API de test n'apparaît pas dans le diagnostic
+    it('I. le diagnostic ne contient jamais la clé API', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: 'test-key-never-exposed is invalid' }), { status: 400 })
+      );
+      // On vérifie que la classe ne stoque pas la clé comme propriété interne
+      const err = await makeAdapter(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      // La propriété de l'erreur ne doit pas exposer le token comme champ direct
+      expect(Object.keys(err)).not.toContain('apiKey');
+      expect(Object.keys(err)).not.toContain('token');
+      expect(Object.keys(err)).not.toContain('X-Auth-Token');
+    });
+
+    // J. X-Auth-Token absent des propriétés de l'erreur
+    it('J. l\'erreur ne contient aucune propriété X-Auth-Token ou header', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: 'rejected' }), { status: 400 })
+      );
+      const err = await makeAdapter(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      const errJson = JSON.stringify(err);
+      expect(errJson).not.toContain('X-Auth-Token');
+      expect(errJson).not.toContain('test-key-never-exposed');
+    });
+
+    // K. 401 — non-régression
+    it('K. HTTP 401 reste ProviderUnavailableError (non-régression)', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response('Unauthorized', { status: 401 })
+      );
+      await expect(makeAdapter(mockFetch).getMatches('FL1')).rejects.toBeInstanceOf(ProviderUnavailableError);
+    });
+
+    // L. 403 — non-régression
+    it('L. HTTP 403 reste ProviderUnavailableError (non-régression)', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response('Forbidden', { status: 403 })
+      );
+      await expect(makeAdapter(mockFetch).getMatches('FL1')).rejects.toBeInstanceOf(ProviderUnavailableError);
+    });
+
+    // M. 429 — non-régression
+    it('M. HTTP 429 reste ProviderRateLimitError (non-régression)', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response('Rate limit', { status: 429 })
+      );
+      await expect(makeAdapter(mockFetch).getMatches('FL1')).rejects.toBeInstanceOf(ProviderRateLimitError);
+    });
+
+    // N. 500 — non-régression
+    it('N. HTTP 500 reste ProviderUnavailableError (non-régression)', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response('Server error', { status: 500 })
+      );
+      await expect(makeAdapter(mockFetch).getMatches('FL1')).rejects.toBeInstanceOf(ProviderUnavailableError);
+    });
+
+    // O. Erreur réseau — non-régression
+    it('O. erreur réseau reste ProviderUnavailableError (non-régression)', async () => {
+      const mockFetch = vi.fn().mockRejectedValue(new TypeError('Network failure'));
+      await expect(makeAdapter(mockFetch).getMatches('FL1')).rejects.toBeInstanceOf(ProviderUnavailableError);
+    });
+
+    // P. JSON invalide en succès — non-régression
+    it('P. succès HTTP avec JSON invalide reste ProviderUnavailableError (non-régression)', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response('not-valid-json', { status: 200 })
+      );
+      await expect(makeAdapter(mockFetch).getMatches('FL1')).rejects.toBeInstanceOf(ProviderUnavailableError);
+    });
+
+    // sanitizeProviderText unité — test la fonction pure directement
+    it('sanitizeProviderText: retourne undefined pour objet, null, undefined, tableau', () => {
+      expect(sanitizeProviderText({})).toBeUndefined();
+      expect(sanitizeProviderText(null)).toBeUndefined();
+      expect(sanitizeProviderText(undefined)).toBeUndefined();
+      expect(sanitizeProviderText([])).toBeUndefined();
+    });
+
+    it('sanitizeProviderText: tronque correctement à la limite donnée', () => {
+      expect(sanitizeProviderText('a'.repeat(300), 256)!.length).toBe(256);
+      expect(sanitizeProviderText('a'.repeat(10), 256)!.length).toBe(10);
+    });
+
+    it('sanitizeProviderText: supprime les caractères de contrôle', () => {
+      const result = sanitizeProviderText('line1\nline2\x00end');
+      expect(result).not.toMatch(/[\x00-\x1F\x7F]/);
+    });
+  });
+});
