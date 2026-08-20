@@ -6,6 +6,7 @@ import {
   ClientState,
   createFormBadges,
   createSeasonStrengthElement,
+  createScheduleLoadElement,
 } from '../../src/frontend/ts/render.js';
 import { MatchDTO, AnalyticalMatchEntryDTO, SeasonStrengthProfileDTO } from '../../src/frontend/ts/api-client.js';
 
@@ -317,6 +318,87 @@ describe('Render DOM Unit Tests (happy-dom)', () => {
       expect(container.textContent).toContain('Beta');
       expect(container.textContent).toContain('Profil saison');
       expect(container.textContent).toContain('Profil saisonnier indisponible');
+    });
+  });
+
+  describe('Schedule Load (Repos & Congestion) Rendering Unit Tests (DEC-029 / DEC-030)', () => {
+    it('renders AVAILABLE Schedule Load with exact metrics, factual zeros and shortRest badge', () => {
+      const load = {
+        home: {
+          availability: 'AVAILABLE' as const,
+          daysSinceLastMatch: 2,
+          matchesLast7Days: 2,
+          matchesLast14Days: 4,
+          matchesLast28Days: 6,
+          minimumRestDaysInLast14Days: 3,
+          shortRest: true,
+        },
+        away: {
+          availability: 'AVAILABLE' as const,
+          daysSinceLastMatch: 35,
+          matchesLast7Days: 0,
+          matchesLast14Days: 0,
+          matchesLast28Days: 0,
+          minimumRestDaysInLast14Days: null,
+          shortRest: false,
+        },
+      };
+
+      const el = createScheduleLoadElement(load);
+      expect(el.getAttribute('aria-label')).toBe('Repos et congestion calendaire');
+      expect(el.textContent).toContain('Repos & congestion');
+      expect(el.textContent).toContain('Charge dans cette compétition');
+      expect(el.textContent).toContain('Domicile');
+      expect(el.textContent).toContain('Extérieur');
+
+      // Home check
+      expect(el.textContent).toContain('2 j');
+      expect(el.textContent).toContain('2 / 4 / 6');
+      expect(el.textContent).toContain('3 j');
+      expect(el.textContent).toContain('Repos court');
+
+      // Away check (factual zeros)
+      expect(el.textContent).toContain('35 j');
+      expect(el.textContent).toContain('0 / 0 / 0');
+      expect(el.textContent).toContain('—');
+
+      // Strict prohibition of physiological terminology
+      expect(el.textContent).not.toContain('Fatigué');
+      expect(el.textContent).not.toContain('Épuisé');
+      expect(el.textContent).not.toContain('Frais');
+      expect(el.textContent).not.toContain('Score');
+      expect(el.textContent).not.toContain('score');
+    });
+
+    it('renders INSUFFICIENT_DATA and UNAVAILABLE cleanly without false zeros', () => {
+      const load = {
+        home: {
+          availability: 'INSUFFICIENT_DATA' as const,
+          daysSinceLastMatch: null,
+          matchesLast7Days: null,
+          matchesLast14Days: null,
+          matchesLast28Days: null,
+          minimumRestDaysInLast14Days: null,
+          shortRest: null,
+        },
+        away: {
+          availability: 'UNAVAILABLE' as const,
+          daysSinceLastMatch: null,
+          matchesLast7Days: null,
+          matchesLast14Days: null,
+          matchesLast28Days: null,
+          minimumRestDaysInLast14Days: null,
+          shortRest: null,
+        },
+      };
+
+      const el = createScheduleLoadElement(load);
+      expect(el.textContent).toContain('Données insuffisantes');
+      expect(el.textContent).toContain('Indisponible');
+      expect(el.textContent).not.toContain('0 j');
+      expect(el.textContent).not.toContain('undefined');
+      expect(el.textContent).not.toContain('null');
+      expect(el.textContent).not.toContain('NaN');
     });
   });
 });

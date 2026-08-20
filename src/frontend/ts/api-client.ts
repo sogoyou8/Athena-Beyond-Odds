@@ -125,6 +125,18 @@ export interface HeadToHeadProfileDTO {
   };
 }
 
+export type ScheduleLoadAvailabilityDTO = 'AVAILABLE' | 'INSUFFICIENT_DATA' | 'UNAVAILABLE';
+
+export interface ScheduleLoadProfileDTO {
+  availability: ScheduleLoadAvailabilityDTO;
+  daysSinceLastMatch: number | null;
+  matchesLast7Days: number | null;
+  matchesLast14Days: number | null;
+  matchesLast28Days: number | null;
+  minimumRestDaysInLast14Days: number | null;
+  shortRest: boolean | null;
+}
+
 export interface AnalyticalMatchEntryDTO {
   match: MatchDTO;
   form: {
@@ -135,7 +147,11 @@ export interface AnalyticalMatchEntryDTO {
     home: SeasonStrengthProfileDTO;
     away: SeasonStrengthProfileDTO;
   };
-  headToHead: HeadToHeadProfileDTO;
+  headToHead?: HeadToHeadProfileDTO;
+  scheduleLoad?: {
+    home: ScheduleLoadProfileDTO;
+    away: ScheduleLoadProfileDTO;
+  };
 }
 
 export type AnalyticalMatchesFetchResult =

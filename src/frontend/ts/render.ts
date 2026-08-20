@@ -464,6 +464,123 @@ export function createHeadToHeadElement(profile: HeadToHeadProfileDTO): HTMLElem
   return container;
 }
 
+/**
+ * Crée le bloc UI "Repos & congestion" pour une équipe (DEC-029 / DEC-030).
+ */
+export function createScheduleLoadTeamElement(
+  teamLabel: string,
+  profile: import('./api-client.js').ScheduleLoadProfileDTO
+): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'schedule-load-team';
+
+  const labelEl = document.createElement('div');
+  labelEl.className = 'schedule-load-team-label';
+  labelEl.textContent = teamLabel;
+  el.append(labelEl);
+
+  if (profile.availability === 'UNAVAILABLE') {
+    const status = document.createElement('div');
+    status.className = 'schedule-load-status';
+    status.textContent = 'Indisponible';
+    el.append(status);
+    return el;
+  }
+
+  if (profile.availability === 'INSUFFICIENT_DATA') {
+    const status = document.createElement('div');
+    status.className = 'schedule-load-status';
+    status.textContent = 'Données insuffisantes';
+    el.append(status);
+    return el;
+  }
+
+  // État AVAILABLE : métriques factuelles
+  const grid = document.createElement('div');
+  grid.className = 'schedule-load-grid';
+
+  const buildRow = (rowLabel: string, val: string | number, extraBadge?: HTMLElement) => {
+    const row = document.createElement('div');
+    row.className = 'schedule-load-row';
+    const l = document.createElement('span');
+    l.className = 'schedule-load-row-label';
+    l.textContent = rowLabel;
+    const v = document.createElement('span');
+    v.className = 'schedule-load-row-val';
+    v.textContent = String(val);
+    row.append(l, v);
+    if (extraBadge) {
+      row.append(extraBadge);
+    }
+    return row;
+  };
+
+  // Dernier match
+  let shortRestBadge: HTMLElement | undefined;
+  if (profile.shortRest === true) {
+    shortRestBadge = document.createElement('span');
+    shortRestBadge.className = 'short-rest-badge';
+    shortRestBadge.textContent = 'Repos court';
+  }
+  const lastMatchText = profile.daysSinceLastMatch !== null ? `${profile.daysSinceLastMatch} j` : '—';
+  grid.append(buildRow('Dernier match', lastMatchText, shortRestBadge));
+
+  // Matchs (7 / 14 / 28 j)
+  const m7 = profile.matchesLast7Days !== null ? profile.matchesLast7Days : '—';
+  const m14 = profile.matchesLast14Days !== null ? profile.matchesLast14Days : '—';
+  const m28 = profile.matchesLast28Days !== null ? profile.matchesLast28Days : '—';
+  grid.append(buildRow('Matchs (7 / 14 / 28 j)', `${m7} / ${m14} / ${m28}`));
+
+  // Repos min. (14 j)
+  const minRestText = profile.minimumRestDaysInLast14Days !== null ? `${profile.minimumRestDaysInLast14Days} j` : '—';
+  grid.append(buildRow('Repos min. (14 j)', minRestText));
+
+  el.append(grid);
+  return el;
+}
+
+/**
+ * Crée le bloc UI "Repos & congestion" pour la carte de match (DEC-029 / DEC-030).
+ */
+export function createScheduleLoadElement(
+  load: {
+    home: import('./api-client.js').ScheduleLoadProfileDTO;
+    away: import('./api-client.js').ScheduleLoadProfileDTO;
+  }
+): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'schedule-load-container';
+  container.setAttribute('aria-label', 'Repos et congestion calendaire');
+
+  const header = document.createElement('div');
+  header.className = 'schedule-load-header';
+
+  const title = document.createElement('div');
+  title.className = 'schedule-load-title';
+  title.textContent = 'Repos & congestion';
+
+  const notice = document.createElement('div');
+  notice.className = 'schedule-load-notice';
+  notice.textContent = 'Charge dans cette compétition';
+
+  header.append(title, notice);
+  container.append(header);
+
+  const teamsContainer = document.createElement('div');
+  teamsContainer.className = 'schedule-load-teams';
+
+  const homeEl = createScheduleLoadTeamElement('Domicile', load.home);
+  homeEl.classList.add('schedule-load-home');
+
+  const awayEl = createScheduleLoadTeamElement('Extérieur', load.away);
+  awayEl.classList.add('schedule-load-away');
+
+  teamsContainer.append(homeEl, awayEl);
+  container.append(teamsContainer);
+
+  return container;
+}
+
 function createMatchCard(match: MatchDTO): HTMLElement {
   const card = document.createElement('article');
   card.className = 'match-card';
@@ -478,13 +595,12 @@ function createMatchCard(match: MatchDTO): HTMLElement {
   try {
     const d = new Date(match.utcDate);
     dateSpan.textContent = d.toLocaleString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'UTC'
-    }) + ' UTC';
+    });
   } catch {
     dateSpan.textContent = match.utcDate;
   }
@@ -561,6 +677,12 @@ function createAnalyticalMatchCard(entry: AnalyticalMatchEntryDTO): HTMLElement 
   if (entry.headToHead) {
     const h2hEl = createHeadToHeadElement(entry.headToHead);
     card.append(h2hEl);
+  }
+
+  // Intégrer le bloc Repos & Congestion si présent (DEC-029 / DEC-030 Phase 3.5)
+  if (entry.scheduleLoad) {
+    const scheduleLoadEl = createScheduleLoadElement(entry.scheduleLoad);
+    card.append(scheduleLoadEl);
   }
 
   return card;

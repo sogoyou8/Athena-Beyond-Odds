@@ -404,6 +404,100 @@ body {
   font-style: italic;
 }
 
+/* -----------------------------------------------------------------------
+   Phase 3.5 — Repos & Congestion (DEC-029 / DEC-030)
+----------------------------------------------------------------------- */
+.schedule-load-container {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background-color: var(--color-surface-muted, rgba(0, 0, 0, 0.02));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 6px);
+  font-size: 0.8125rem;
+}
+
+.schedule-load-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.schedule-load-title {
+  font-weight: 600;
+  color: var(--color-text-base);
+}
+
+.schedule-load-notice {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.schedule-load-teams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 480px) {
+  .schedule-load-teams {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}
+
+.schedule-load-team-label {
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  margin-bottom: 0.25rem;
+}
+
+.schedule-load-status {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+  padding: 0.25rem 0;
+}
+
+.schedule-load-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.schedule-load-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.schedule-load-row-label {
+  color: var(--color-text-muted);
+}
+
+.schedule-load-row-val {
+  font-weight: 600;
+  color: var(--color-text-base);
+}
+
+.short-rest-badge {
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  background-color: var(--color-warning-surface, rgba(234, 179, 8, 0.15));
+  color: var(--color-warning-text, #a16207);
+  border: 1px solid var(--color-warning-border, rgba(234, 179, 8, 0.3));
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
 
 /* États UI */
 .state-container {
