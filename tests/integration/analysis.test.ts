@@ -533,5 +533,129 @@ describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-0
     expect(first.scheduleLoad.home.availability).toBe('AVAILABLE');
     // Momentum added, does not replace existing
     expect(first.momentum.home).toBeDefined();
+    // Opponent Context added, does not replace existing
+    expect(first.opponentContext.home).toBeDefined();
+    expect(first.opponentContext.away).toBeDefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // Tests d'intégration DEC-036 : Phase 3.7 Opponent Context
+  // -------------------------------------------------------------------------
+
+  it('DEC-036: returns opponentContext structure with home and away profiles on each match', async () => {
+    const res = await request(app)
+      .get('/competitions/FL1/matches/analysis')
+      .expect(200);
+
+    for (const entry of res.body.matches) {
+      expect(entry).toHaveProperty('opponentContext');
+      expect(entry.opponentContext).toHaveProperty('home');
+      expect(entry.opponentContext).toHaveProperty('away');
+
+      const homeOC = entry.opponentContext.home;
+      const awayOC = entry.opponentContext.away;
+
+      expect(homeOC).toHaveProperty('availability');
+      expect(homeOC).toHaveProperty('recentMatchSampleSize');
+      expect(homeOC).toHaveProperty('evaluatedOpponentSampleSize');
+      expect(homeOC).toHaveProperty('contextualSampleSize');
+      expect(homeOC).toHaveProperty('opponents');
+      expect(Array.isArray(homeOC.opponents)).toBe(true);
+
+      expect(awayOC).toHaveProperty('availability');
+      expect(awayOC).toHaveProperty('recentMatchSampleSize');
+      expect(awayOC).toHaveProperty('evaluatedOpponentSampleSize');
+      expect(awayOC).toHaveProperty('contextualSampleSize');
+      expect(awayOC).toHaveProperty('opponents');
+      expect(Array.isArray(awayOC.opponents)).toBe(true);
+    }
+  });
+
+  it('DEC-036: opponentContext AVAILABLE case on match 1 (Alpha FC)', async () => {
+    const res = await request(app)
+      .get('/competitions/FL1/matches/analysis')
+      .expect(200);
+
+    const first = res.body.matches[0];
+    const homeOC = first.opponentContext.home; // Alpha FC
+
+    expect(homeOC.availability).toBe('AVAILABLE');
+    expect(homeOC.recentMatchSampleSize).toBe(5);
+    expect(homeOC.evaluatedOpponentSampleSize).toBe(4); // Gamma, Delta, Epsilon, Beta (4 distincts >= 3)
+    expect(homeOC.contextualSampleSize).toBe(5);
+
+    expect(homeOC.averageOpponentPointsPerMatch).toBeTypeOf('number');
+    expect(homeOC.averageOpponentGoalDifferencePerMatch).toBeTypeOf('number');
+    expect(homeOC.averageContextualOpponentPointsPerMatch).toBeTypeOf('number');
+    expect(homeOC.averageContextualOpponentGoalDifferencePerMatch).toBeTypeOf('number');
+
+    expect(homeOC.opponents).toHaveLength(5);
+    for (const entry of homeOC.opponents) {
+      expect(entry).toHaveProperty('recentMatchId');
+      expect(entry).toHaveProperty('opponentTeamId');
+      expect(entry).toHaveProperty('opponentTeamName');
+      expect(entry).toHaveProperty('matchDate');
+      expect(entry).toHaveProperty('opponentVenue');
+      expect(['HOME', 'AWAY']).toContain(entry.opponentVenue);
+      expect(entry.overall.sampleSize).toBeGreaterThanOrEqual(1);
+      expect(entry.contextual.sampleSize).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('DEC-036: opponentContext INSUFFICIENT_DATA case on match 3 away (Zeta Rovers with 0 matches)', async () => {
+    const res = await request(app)
+      .get('/competitions/FL1/matches/analysis')
+      .expect(200);
+
+    const third = res.body.matches[2];
+    const awayOC = third.opponentContext.away; // Zeta Rovers
+
+    expect(awayOC.availability).toBe('INSUFFICIENT_DATA');
+    expect(awayOC.recentMatchSampleSize).toBe(0);
+    expect(awayOC.evaluatedOpponentSampleSize).toBe(0);
+    expect(awayOC.contextualSampleSize).toBe(0);
+    expect(awayOC.averageOpponentPointsPerMatch).toBeNull();
+    expect(awayOC.averageOpponentGoalDifferencePerMatch).toBeNull();
+    expect(awayOC.averageContextualOpponentPointsPerMatch).toBeNull();
+    expect(awayOC.averageContextualOpponentGoalDifferencePerMatch).toBeNull();
+    expect(awayOC.opponents).toEqual([]);
+  });
+
+  it('DEC-036: opponentContext UNAVAILABLE on history failure while preserving HTTP 200', async () => {
+    let callCount = 0;
+    const failingProvider: SportsDataProvider = {
+      getCompetitions: () => Promise.resolve([]),
+      getMatchDetails: () => Promise.reject(new Error('Not implemented')),
+      getMatches: (code: string, fromDate?: Date, toDate?: Date, historyFilter?: HistoryFilter) => {
+        callCount++;
+        if (historyFilter !== undefined) {
+          // History call fails
+          return Promise.reject(new Error('Simulated upstream failure on history corpus'));
+        }
+        // Scheduled matches call succeeds
+        return new InMemorySportsDataProvider().getMatches(code, fromDate, toDate);
+      },
+    };
+
+    const appWithFailingHistory = createApp(failingProvider, {
+      clockFn: () => IN_MEMORY_REFERENCE_NOW,
+    });
+
+    const res = await request(appWithFailingHistory)
+      .get('/competitions/FL1/matches/analysis')
+      .expect(200);
+
+    expect(callCount).toBe(2);
+    expect(res.body.matches).toHaveLength(3);
+
+    const entry = res.body.matches[0];
+    expect(entry.opponentContext.home.availability).toBe('UNAVAILABLE');
+    expect(entry.opponentContext.away.availability).toBe('UNAVAILABLE');
+    expect(entry.opponentContext.home.recentMatchSampleSize).toBeNull();
+    expect(entry.opponentContext.home.evaluatedOpponentSampleSize).toBeNull();
+    expect(entry.opponentContext.home.contextualSampleSize).toBeNull();
+    expect(entry.opponentContext.home.averageOpponentPointsPerMatch).toBeNull();
+    expect(entry.opponentContext.home.averageOpponentGoalDifferencePerMatch).toBeNull();
+    expect(entry.opponentContext.home.opponents).toEqual([]);
   });
 });
