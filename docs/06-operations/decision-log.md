@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.4
+> **Version :** 2.5
 
 # Decision Log
 
@@ -1100,3 +1100,25 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 8. **DEC-025.8 — Validation Chromium humaine conforme :** Validation humaine documentée sous Google Chrome 151.0.7922.140 (desktop, mobile ~390px, thèmes clair et sombre, 0 erreur JS fatale, 0 appel `football-data.org`, aucun polling, aucun retry automatique, footer actualisé à `Prototype Phase 3.3`).
 9. **DEC-025.9 — Validation technique automatisée :** La suite complète post-fusion valide 255/255 tests Vitest (21 fichiers, 0 échec, 0 désactivé), typechecks serveur et client PASS, build PASS et diff-check PASS.
 10. **DEC-025.10 — Clôture et suites :** Phase 3.3 officiellement terminée. La prochaine phase analytique (Phase 3.4+) n'est pas autorisée automatiquement et fera l'objet d'un arbitrage formel ultérieur par le Fondateur.
+
+---
+
+## DEC-026 — Phase 3.4 — Cadrage du H2H contextualisé
+
+- **Date :** 2026-08-20
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Document de référence :** `docs/03-technical-architecture/phase-3-4-h2h-framing.md`
+
+### Résumé des arbitrages et cadrages DEC-026
+
+1. **DEC-026.1 — Ouverture de la Phase 3.4 en cadrage produit uniquement :** La Phase 3.4 (H2H contextualisé) est officiellement ouverte au stade du cadrage. L'implémentation logicielle, les modifications de code et les requêtes réseau sont interdites.
+2. **DEC-026.2 — Rôle du H2H dans la chaîne analytique :** Troisième brique du Match Center, distincte de Form 5 (forme récente court terme de chaque équipe) et de Season Strength (niveau de fond de la saison). Le H2H se concentre sur l'historique spécifique des confrontations directes entre les deux équipes du match cible.
+3. **DEC-026.3 — Approche contextualisée vs H2H naïf :** Rejet des bilans bruts surinterprétés (ex: « Équipe A a gagné 6 des 10 H2H donc elle est favorite »). Le H2H doit être contextualisé par la taille d'échantillon, l'ancienneté, les saisons couvertes, l'ordre chronologique, le lieu (domicile/extérieur) et les compétitions.
+4. **DEC-026.4 — Nature factuelle et interdiction prédictive :** Calcul déterministe et explicable. Interdiction formelle de scores de force synthétiques (`h2hStrengthScore`, `dominanceScore`), de scores de confiance (`h2hConfidence`), de probabilités de victoire (`winProbability`), de cotes (*odds*), de Value/EV/Kelly, de ML ou de Decision Engine.
+5. **DEC-026.5 — Double perspective obligatoire :** Toute statistique H2H doit pouvoir être restituée depuis la perspective explicite de chacune des deux équipes.
+6. **DEC-026.6 — Enjeu architectural de la profondeur historique :** Le contrat provider actuel (`SportsDataProvider.getMatches(competitionCode)` sans dates) est cadré par DEC-020 comme retournant la saison courante (souvent 0 ou 1 confrontation). Athena ne prétend pas disposer d'un historique multi-saison tant que sa faisabilité et son coût provider n'ont pas été formellement arbitrés.
+7. **DEC-026.7 — Pas de pondération temporelle arbitraire :** Pas de formule de pondération non calibrée ($0.8/0.2$). L'ancienneté de chaque confrontation doit être rendue visible et transparente sans manipulation algorithmique.
+8. **DEC-026.8 — Filtres stricts et gestion des cas limites :** Matchs `FINISHED` uniquement avec score complet, coupure temporelle stricte `utcDate < targetDate`. En cas de 0 confrontation, statut `INSUFFICIENT_DATA` sans faux zéros. En cas d'échec provider, dégradation locale `UNAVAILABLE` sans nouvel état global de page.
+9. **DEC-026.9 — Intégrité de l'infrastructure et coût :** Maintien du port `SportsDataProvider` inchangé. Interdiction absolue des requêtes N+1 ($O(N)$ proscrit). Aucune supposition sur les capacités de `football-data.org` sans audit hors production.
+10. **DEC-026.10 — Questions Ouvertes (OQ-016 à OQ-028) et séquence :** 13 questions ouvertes formellement ouvertes relatives à l'horizon temporel (saison courante vs multi-saison), la profondeur maximale, les segments Domicile/Extérieur, les coupes/amicaux, les DTOs et le budget provider. Séquence : DEC-026 -> Arbitrages OQ-016..OQ-028 -> DEC-027 (Conception technique) -> Implémentation ultérieure.
