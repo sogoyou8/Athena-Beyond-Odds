@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 1.9
+> **Version :** 2.0
 
 # Decision Log
 
@@ -978,3 +978,34 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 13. **DEC-020.13 — Hors périmètre :** Aucun SQLite, nouveau provider, ML, Decision Engine, cote, EV ou Kelly.
 14. **DEC-020.14 — Autorisation conditionnelle du correctif M-001 :** Le troisième commit correctif M-001 sur PR `#26` est autorisé **UNIQUEMENT APRÈS** la fusion conforme de DEC-020 et son audit post-fusion positif.
 15. **DEC-020.15 — Phase 2.9 :** Aucun appel réseau réel pendant la phase documentaire. Validation réelle éligible après audit de la PR `#26` finale.
+
+---
+
+## DEC-021 — Phase 3.2 — Classification et observabilité des erreurs football-data.org
+
+- **Date :** 2026-08-20
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Document de référence :** `docs/03-technical-architecture/phase-3-2-provider-error-classification-observability.md`
+
+### Résumé des arbitrages DEC-021
+
+1. **DEC-021.1 — Portée :** Concerne exclusivement la classification et l'observabilité sécurisée des erreurs provenant de `football-data.org` dans le cadre de Form 5 / Phase 3.2. Aucun élargissement fonctionnel.
+2. **DEC-021.2 — Classification HTTP 400 :** Un statut HTTP 400 (Bad Request) ne doit plus être confondu avec une indisponibilité réseau ou serveur (`ProviderUnavailableError`). La classe d'erreur `ProviderRequestRejectedError` est créée.
+3. **DEC-021.3 — Diagnostic d'erreur sécurisé :** Lors d'un HTTP 400, l'adaptateur lit une fois le corps JSON d'erreur pour en extraire le message textuel d'explication. Le corps brut n'est jamais stocké ni persisté.
+4. **DEC-021.4 — Whitelist de champs :** Seuls les champs textuels non sensibles de premier niveau (`message`, `error`, `errorCode`, `code`) sont inspectés.
+5. **DEC-021.5 — Sanitisation et bornage :** Le message extrait est converti en chaîne primitive, nettoyé des caractères de contrôle et tronqué à 256 caractères maximum.
+6. **DEC-021.6 — Confidentialité des secrets :** Interdiction absolue d'exposer ou de journaliser les clés API (`FOOTBALL_DATA_API_KEY`), les en-têtes d'authentification (`X-Auth-Token`) ou les variables d'environnement.
+7. **DEC-021.7 — Frontend inchangé :** Aucun nouvel état global client. Les 9 états Phase 3.1 restent inchangés. Aucun message technique brut n'est affiché à l'utilisateur final.
+8. **DEC-021.8 — Contrat HTTP public préservé :** `analysis-route.ts` et `matches-route.ts` continuent de mapper l'erreur vers `HTTP 503` (avec `{ error: 'PROVIDER_UNAVAILABLE' }`) pour préserver le contrat public existant.
+9. **DEC-021.9 — Matrice de statuts :**
+   - HTTP 400 -> `ProviderRequestRejectedError` (HTTP 503 local)
+   - HTTP 401/403 -> `ProviderUnavailableError` (HTTP 503 local)
+   - HTTP 429 -> `ProviderRateLimitError` (HTTP 429 local)
+   - HTTP 5xx / Network / Timeout -> `ProviderUnavailableError` (HTTP 503 local)
+10. **DEC-021.10 — Pas de retry automatique :** Tout HTTP 400 est déterministe et échoue immédiatement sans retry automatique.
+11. **DEC-021.11 — DEC-020 préservée :** La sémantique temporelle, la signature du port `SportsDataProvider`, le calcul `FormCalculator` et la dégradation gracieuse M-002 restent intégralement préservés.
+12. **DEC-021.12 — Cause du 400 enregistrée comme inconnue :** La cause précise du HTTP 400 observé lors de la validation Phase 2.9 du 2026-08-20 reste officiellement enregistrée comme inconnue hors-réseau.
+13. **DEC-021.13 — Gel de PR #26 :** La PR `#26` reste gelée sur son commit `bd32012e09ee8338c2ba80d2445dc0e9180b1c1b` tant que DEC-021 n'est pas fusionnée et auditée.
+14. **DEC-021.14 — Autorisation conditionnelle du correctif technique :** LE CORRECTIF TECHNIQUE DEC-021 SUR PR #26 EST AUTORISÉ UNIQUEMENT APRÈS FUSION CONFORME DE DEC-021 ET AUDIT POST-FUSION POSITIF.
+15. **DEC-021.15 — Condition de nouvelle validation réseau :** Une nouvelle tentative réseau Phase 2.9 Niveau 2 ne sera autorisée par le Fondateur qu'après fusion de DEC-021, implémentation du cinquième commit sur PR #26, audit technique positif et validation des tests déterministes.
