@@ -217,12 +217,29 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
    * Conforme à DEC-020 :
    * - Sans dates : récupère les matchs de la saison courante sans fabriquer de query params artificiels.
    * - Avec dates : transmet les bornes UTC demandées.
+   * Conforme à DEC-027 (Option 3B) :
+   * - historyFilter.seasonCount : déclenche des fetches pour chaque saison (courante, N-1, N-2).
+   *   Le seasonId sur Match est basé sur la startYear du calendrier sportif (ex: 2025 pour 2025/26).
+   *   Pour football-data.org : chaque saison fait l'objet d'un fetch distinct avec ?season=YYYY.
    */
   async getMatches(
     competitionCode: string,
     fromDate?: Date,
-    toDate?: Date
+    toDate?: Date,
+    historyFilter?: import('../../../application/ports/sports-data-provider.js').HistoryFilter
   ): Promise<Match[]> {
+    // DEC-027 (Option 3B) : si historyFilter est fourni sans dates :
+    // 1) Si seasonIds explicites : fetch chaque saison demandée (mappée depuis l'identifiant).
+    // 2) Si seasonCount : fetch multi-saison (saison courante + antérieures, avec découverte catalogue si vide).
+    if (historyFilter !== undefined && fromDate === undefined && toDate === undefined) {
+      if (historyFilter.seasonIds && historyFilter.seasonIds.length > 0) {
+        return this.fetchExplicitSeasonsMatches(competitionCode, historyFilter.seasonIds);
+      }
+      if (historyFilter.seasonCount && historyFilter.seasonCount > 1) {
+        return this.fetchMultiSeasonMatches(competitionCode, historyFilter.seasonCount);
+      }
+    }
+
     let queryParams = '';
     let dateFromStr = '';
     let dateToStr = '';
@@ -437,6 +454,220 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
     });
 
     return matches;
+  }
+
+  /**
+   * Récupère les matchs pour des identifiants explicites de saisons (DEC-027 Option 3B).
+   * Mappe l'identifiant métier (ex: 'season-2024' ou '2024') en startYear pour le query param ?season=YYYY.
+   */
+  private async fetchExplicitSeasonsMatches(
+    competitionCode: string,
+    seasonIds: readonly string[]
+  ): Promise<Match[]> {
+    const allMatches: Match[] = [];
+    for (const seasonId of seasonIds) {
+      const parts = seasonId.split('-');
+      const year = parseInt(parts[parts.length - 1]!, 10);
+      const targetYear = !isNaN(year) && year > 1900 && year < 2200 ? year : undefined;
+      const seasonMatches = await this.fetchSingleSeasonMatches(competitionCode, targetYear);
+      allMatches.push(...seasonMatches);
+    }
+    return allMatches;
+  }
+
+  /**
+   * Découvre la startYear de la saison courante via le catalogue /competitions/{id} (DEC-027 §4 / §7).
+   * Requête HTTP amont #2/3 sur le cold path (budget max 5 HTTP amont).
+   */
+  private async discoverCurrentSeasonStartYear(competitionCode: string): Promise<number | null> {
+    const url = `${this.baseUrl}/competitions/${encodeURIComponent(competitionCode)}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    let response: Response;
+    try {
+      response = await this.fetchFn(url, {
+        method: 'GET',
+        headers: {
+          'X-Auth-Token': this.apiKey,
+          Accept: 'application/json',
+        },
+        signal: controller.signal,
+      });
+    } catch (err: unknown) {
+      clearTimeout(timer);
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new ProviderUnavailableError(
+          `Délai dépassé (${this.timeoutMs}ms) lors de la découverte catalogue à football-data.org`
+        );
+      }
+      throw new ProviderUnavailableError(
+        `Erreur réseau lors de la découverte catalogue à football-data.org: ${(err as Error)?.message ?? 'inconnue'}`
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (response.status === 429) {
+      throw new ProviderRateLimitError(
+        'Limite de débit dépassée (HTTP 429) sur catalogue football-data.org',
+        60000
+      );
+    }
+
+    if (!response.ok) {
+      throw new ProviderUnavailableError(
+        `L'API football-data.org a retourné HTTP ${response.status} lors de la découverte catalogue`
+      );
+    }
+
+    try {
+      const payload = (await response.json()) as { currentSeason?: { startDate?: string } };
+      if (payload?.currentSeason?.startDate) {
+        const d = new Date(payload.currentSeason.startDate);
+        const y = d.getUTCFullYear();
+        if (!isNaN(y) && y > 1900 && y < 2200) {
+          return y;
+        }
+      }
+      return null;
+    } catch {
+      throw new ProviderUnavailableError(
+        'Réponse invalide du catalogue football-data.org: impossible de parser le JSON'
+      );
+    }
+  }
+
+  /**
+   * Effectue des fetches séquentiels pour la saison courante et les saisons antérieures.
+   *
+   * Implémentation DEC-027 Option 3B pour football-data.org :
+   * - CALL 1 : saison courante (sans ?season=, laissée à l'API)
+   * - Si saison courante vide : CALL CATALOGUE (HTTP 2) pour identifier la startYear de référence.
+   * - CALL N : saisons N-1, N-2 avec ?season=YYYY.
+   *
+   * Budget strict : Hard Max <= 5 requêtes HTTP amont sur cold path (Target <= 4).
+   * En cas d'échec d'une requête de saison antérieure ou du catalogue, on s'arrête (fail-fast, 0 retry).
+   */
+  private async fetchMultiSeasonMatches(
+    competitionCode: string,
+    seasonCount: number
+  ): Promise<Match[]> {
+    // FETCH 1 : saison courante (comportement inchangé DEC-020)
+    const currentMatches = await this.fetchSingleSeasonMatches(competitionCode, undefined);
+    const allMatches: Match[] = [...currentMatches];
+
+    if (seasonCount <= 1) {
+      return allMatches;
+    }
+
+    let currentStartYear: number | null = null;
+
+    if (currentMatches.length > 0) {
+      const yearCounts = new Map<number, number>();
+      for (const m of currentMatches) {
+        const parts = m.seasonId.split('-');
+        const year = parseInt(parts[parts.length - 1]!, 10);
+        if (!isNaN(year)) {
+          yearCounts.set(year, (yearCounts.get(year) ?? 0) + 1);
+        }
+      }
+
+      let maxCount = 0;
+      for (const [year, count] of yearCounts) {
+        if (count > maxCount) {
+          maxCount = count;
+          currentStartYear = year;
+        }
+      }
+    } else {
+      // MAJOR-001 Résolution : si la saison courante retourne 0 match,
+      // interroger le catalogue de la compétition (HTTP #2) pour découvrir la startYear de référence.
+      currentStartYear = await this.discoverCurrentSeasonStartYear(competitionCode);
+    }
+
+    if (!currentStartYear) {
+      // Impossible de déterminer la startYear même après catalogue
+      return allMatches;
+    }
+
+    // FETCH 2..N (ou 3..N+1 si catalogue) : saisons antérieures (N-1, N-2...)
+    for (let i = 1; i < seasonCount; i++) {
+      const historicalYear = currentStartYear - i;
+      const seasonMatches = await this.fetchSingleSeasonMatches(competitionCode, historicalYear);
+      allMatches.push(...seasonMatches);
+    }
+
+    return allMatches;
+  }
+
+  /**
+   * Effectue un seul fetch pour une saison spécifique ou pour la saison courante (year = undefined).
+   * Logique HTTP identique à getMatches standard pour faciliter les mocks dans les tests.
+   */
+  private async fetchSingleSeasonMatches(
+    competitionCode: string,
+    year: number | undefined
+  ): Promise<Match[]> {
+    const queryParams = year !== undefined ? `?season=${year}` : '';
+    const url = `${this.baseUrl}/competitions/${encodeURIComponent(competitionCode)}/matches${queryParams}`;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    let response: Response;
+    try {
+      response = await this.fetchFn(url, {
+        method: 'GET',
+        headers: {
+          'X-Auth-Token': this.apiKey,
+          Accept: 'application/json',
+        },
+        signal: controller.signal,
+      });
+    } catch (err: unknown) {
+      clearTimeout(timer);
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new ProviderUnavailableError(
+          `Délai dépassé (${this.timeoutMs}ms) lors de l'appel historique à football-data.org`
+        );
+      }
+      throw new ProviderUnavailableError(
+        `Erreur réseau lors de l'accès historique à football-data.org: ${(err as Error)?.message ?? 'inconnue'}`
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (response.status === 429) {
+      throw new ProviderRateLimitError(
+        'Limite de débit dépassée (HTTP 429) sur l\'API football-data.org (historique)',
+        60000
+      );
+    }
+
+    if (!response.ok) {
+      throw new ProviderUnavailableError(
+        `L'API football-data.org a retourné une erreur HTTP ${response.status} pour la saison historique${year !== undefined ? ` ${year}` : ''}`
+      );
+    }
+
+    let payload: FootballDataMatchesResponse;
+    try {
+      payload = (await response.json()) as FootballDataMatchesResponse;
+    } catch {
+      throw new ProviderUnavailableError(
+        'Réponse invalide de football-data.org (historique): impossible de parser le JSON'
+      );
+    }
+
+    if (!payload || !Array.isArray(payload.matches)) {
+      throw new ProviderUnavailableError(
+        'Le payload historique de football-data.org ne contient pas un tableau matches valide.'
+      );
+    }
+
+    return this.mapMatchesPayload(payload.matches, competitionCode);
   }
 
   getMatchDetails(_externalMatchId: string): Promise<Match> {
