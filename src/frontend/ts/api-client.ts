@@ -1,5 +1,5 @@
 /**
- * Client API Same-Origin — Athena Frontend Phase 3.1 & Phase 3.3
+ * Client API Same-Origin — Athena Frontend Phase 3.1, Phase 3.3 & Phase 3.4
  */
 
 export interface TeamDTO {
@@ -95,6 +95,36 @@ export interface SeasonStrengthProfileDTO {
   contextual: ContextualSeasonStrengthDTO;
 }
 
+export type HeadToHeadAvailabilityDTO = 'AVAILABLE' | 'INSUFFICIENT_DATA' | 'UNAVAILABLE';
+
+export interface HeadToHeadPerspectiveDTO {
+  teamId: string;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+}
+
+export interface HeadToHeadSegmentDTO {
+  availability: HeadToHeadAvailabilityDTO;
+  sampleSize: number | null;
+  homeTeam: HeadToHeadPerspectiveDTO | null;
+  awayTeam: HeadToHeadPerspectiveDTO | null;
+  latestMeetingDate: string | null;
+  oldestMeetingDate: string | null;
+  seasonsCovered: number | null;
+}
+
+export interface HeadToHeadProfileDTO {
+  overall: HeadToHeadSegmentDTO;
+  contextual: {
+    venue: 'SAME_VENUE';
+    segment: HeadToHeadSegmentDTO;
+  };
+}
+
 export interface AnalyticalMatchEntryDTO {
   match: MatchDTO;
   form: {
@@ -105,6 +135,7 @@ export interface AnalyticalMatchEntryDTO {
     home: SeasonStrengthProfileDTO;
     away: SeasonStrengthProfileDTO;
   };
+  headToHead: HeadToHeadProfileDTO;
 }
 
 export type AnalyticalMatchesFetchResult =

@@ -301,6 +301,10 @@ describe('Render DOM Unit Tests (happy-dom)', () => {
               contextual: { venue: 'AWAY', segment: { availability: 'UNAVAILABLE', sampleSize: null, metrics: null } },
             },
           },
+          headToHead: {
+            overall: { availability: 'UNAVAILABLE', sampleSize: null, homeTeam: null, awayTeam: null, latestMeetingDate: null, oldestMeetingDate: null, seasonsCovered: null },
+            contextual: { venue: 'SAME_VENUE', segment: { availability: 'UNAVAILABLE', sampleSize: null, homeTeam: null, awayTeam: null, latestMeetingDate: null, oldestMeetingDate: null, seasonsCovered: null } },
+          },
         },
       ];
 
