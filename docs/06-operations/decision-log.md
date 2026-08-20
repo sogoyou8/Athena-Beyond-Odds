@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.6
+> **Version :** 2.7
 
 # Decision Log
 
@@ -1148,3 +1148,25 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 3. **DEC-027.3 — Composant pur `HeadToHeadCalculator` :** Service de domaine déterministe et pur, sans I/O ni Date.now(), calculant les confrontations à partir du corpus historique mutualisé.
 4. **DEC-027.4 — Invariants de symétrie et sécurité :** Invariants mathématiques stricts (`wins` = `losses` adverses, etc.), filtrage par identifiants métier stables `Team.id` (matching par nom interdit), coupure temporelle stricte `utcDate < targetDate`.
 5. **DEC-027.5 — Non-régression et stabilité :** Form 5 et Season Strength restent strictement étanches et limitées à la saison courante. Maintien strict de 9 états globaux frontend. Route `/matches` inchangée. Aucun appel réseau réel requis.
+
+---
+
+## DEC-028 — Phase 3.4 — Clôture du H2H contextualisé
+
+- **Date :** 2026-08-20
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Document de référence :** `docs/03-technical-architecture/phase-3-4-h2h-closure.md`
+
+### Résumé des validations et arbitrages de clôture DEC-028
+
+1. **DEC-028.1 — Clôture officielle de la Phase 3.4 :** La Phase 3.4 (Head-to-Head contextualisé) est formellement et définitivement déclarée clôturée. L'ensemble des exigences fonctionnelles, architecturales et techniques de DEC-026 et DEC-027 sont satisfaites.
+2. **DEC-028.2 — Périmètre livré et composant de domaine :** `HeadToHeadCalculator` implémenté comme service de domaine pur ($O(1)$ allocations, sans I/O, déterministe). Historique borné à maximum 5 confrontations et 3 saisons distinctes (saison cible, N-1, N-2). Double segment (`overall` et `contextual SAME_VENUE`) avec perspectives d'équipes symétriques et gestion stricte des statuts `AVAILABLE`, `INSUFFICIENT_DATA` (sans faux zéros) et `UNAVAILABLE`.
+3. **DEC-028.3 — Évolution neutre du provider et budgets respectés :** `SportsDataProvider` étendu via l'interface générique `HistoryFilter` (`seasonCount`, `seasonIds`) sans méthode spécifique H2H. Respect strict du double budget : $\le 2$ invocations logiques Application, $\le 5$ requêtes HTTP amont sur cold path (Normal = 4, Fallback catalogue = 5), complexité $O(1)$ sans N+1.
+4. **DEC-028.4 — Mutualisation et non-régression :** Flux historique mutualisé alimentant `FormCalculator`, `SeasonStrengthCalculator` et `HeadToHeadCalculator`. Non-régression totale sur Form 5 (10/10 tests) et Season Strength (12/12 tests). Route `/matches` strictement préservée.
+5. **DEC-028.5 — Intégration frontend et conformité UI :** Bloc visuel « Confrontations directes » intégré au Match Center avec périodes historiques formatées (`JJ/MM/AAAA → JJ/MM/AAAA` ou date unique), saisons couvertes et copies d'indisponibilité. Footer actualisé à `Prototype Phase 3.4`. 9 états globaux préservés.
+6. **DEC-028.6 — Validation Chromium humaine conforme :** Validation humaine sur Google Chrome 151.0.7922.140 (Desktop sombre et clair, Mobile ~390px sans overflow critique, 0 erreur console fatale, 0 appel externe, polling = NO, retry automatique = NO, restauration après blocage = PASS).
+7. **DEC-028.7 — Validation technique automatisée :** La suite complète valide 293/293 tests Vitest (25 fichiers, 0 échec, 0 désactivé), typechecks serveur et client PASS, build PASS, diff-check PASS, 0 nouvelle dépendance, 0 appel réel (`TOKEN_PRESENT=False`).
+8. **DEC-028.8 — Fusion et traçabilité Git :** PR d'implémentation #36 fusionnée par `Create a merge commit` (`ba43b6de03d037425c5ec0c3369de565b7f7330a`), branche source `implementation/phase-3-4-contextual-h2h` conservée sur le remote.
+9. **DEC-028.9 — Absence de pouvoir prédictif :** La brique H2H reste un composant purement descriptif et contextuel. Elle ne produit aucune cote, probabilité, EV, Kelly ou score synthétique et ne constitue pas un Decision Engine.
+10. **DEC-028.10 — Suites et prochaine étape :** Aucune phase analytique ultérieure (Phase 3.5+) n'est ouverte automatiquement. La prochaine brique fera l'objet d'un cadrage et d'un arbitrage formel séparé par le Fondateur.
