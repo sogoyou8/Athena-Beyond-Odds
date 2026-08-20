@@ -1,5 +1,5 @@
 /**
- * Client API Same-Origin — Athena Frontend Phase 3.1
+ * Client API Same-Origin — Athena Frontend Phase 3.1 & Phase 3.3
  */
 
 export interface TeamDTO {
@@ -51,11 +51,59 @@ export interface TeamFormDTO {
   results: FormResultDTO[];
 }
 
+export type SeasonStrengthAvailabilityDTO = 'AVAILABLE' | 'INSUFFICIENT_DATA' | 'UNAVAILABLE';
+
+export interface SeasonStrengthMetricsDTO {
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  points: number;
+  pointsPerMatch: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+  goalsForPerMatch: number;
+  goalsAgainstPerMatch: number;
+}
+
+export type SeasonStrengthSegmentDTO =
+  | {
+      availability: 'AVAILABLE';
+      sampleSize: number;
+      metrics: SeasonStrengthMetricsDTO;
+    }
+  | {
+      availability: 'INSUFFICIENT_DATA';
+      sampleSize: 0;
+      metrics: null;
+    }
+  | {
+      availability: 'UNAVAILABLE';
+      sampleSize: null;
+      metrics: null;
+    };
+
+export interface ContextualSeasonStrengthDTO {
+  venue: 'HOME' | 'AWAY';
+  segment: SeasonStrengthSegmentDTO;
+}
+
+export interface SeasonStrengthProfileDTO {
+  teamId: string;
+  overall: SeasonStrengthSegmentDTO;
+  contextual: ContextualSeasonStrengthDTO;
+}
+
 export interface AnalyticalMatchEntryDTO {
   match: MatchDTO;
   form: {
     home: TeamFormDTO;
     away: TeamFormDTO;
+  };
+  seasonStrength?: {
+    home: SeasonStrengthProfileDTO;
+    away: SeasonStrengthProfileDTO;
   };
 }
 

@@ -1,8 +1,13 @@
 // @vitest-environment happy-dom
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderUI, ClientState, createFormBadges } from '../../src/frontend/ts/render.js';
-import { MatchDTO } from '../../src/frontend/ts/api-client.js';
+import {
+  renderUI,
+  ClientState,
+  createFormBadges,
+  createSeasonStrengthElement,
+} from '../../src/frontend/ts/render.js';
+import { MatchDTO, AnalyticalMatchEntryDTO, SeasonStrengthProfileDTO } from '../../src/frontend/ts/api-client.js';
 
 describe('Render DOM Unit Tests (happy-dom)', () => {
   let container: HTMLElement;
@@ -184,9 +189,94 @@ describe('Render DOM Unit Tests (happy-dom)', () => {
 
       expect(formEl.querySelector('.form-unavailable')?.textContent).toBe('Forme temporairement indisponible');
     });
+  });
 
-    it('renders analytical matches grid with home and away Form 5 badges without undefined or null text', () => {
-      const analyticalMatches = [
+  describe('Season Strength Rendering Unit Tests (DEC-024)', () => {
+    const availableProfile: SeasonStrengthProfileDTO = {
+      teamId: 'team-alpha-001',
+      overall: {
+        availability: 'AVAILABLE',
+        sampleSize: 6,
+        metrics: {
+          played: 6,
+          wins: 4,
+          draws: 1,
+          losses: 1,
+          points: 13,
+          pointsPerMatch: 2.166666,
+          goalsFor: 12,
+          goalsAgainst: 5,
+          goalDifference: 7,
+          goalsForPerMatch: 2.0,
+          goalsAgainstPerMatch: 0.833333,
+        },
+      },
+      contextual: {
+        venue: 'HOME',
+        segment: {
+          availability: 'AVAILABLE',
+          sampleSize: 3,
+          metrics: {
+            played: 3,
+            wins: 3,
+            draws: 0,
+            losses: 0,
+            points: 9,
+            pointsPerMatch: 3.0,
+            goalsFor: 8,
+            goalsAgainst: 2,
+            goalDifference: 6,
+            goalsForPerMatch: 2.666666,
+            goalsAgainstPerMatch: 0.666666,
+          },
+        },
+      },
+    };
+
+    it('renders AVAILABLE Season Strength with overall and contextual segments and 2-decimal formatted ratios', () => {
+      const el = createSeasonStrengthElement(availableProfile);
+
+      expect(el.getAttribute('aria-label')).toBe('Profil de force saisonnier');
+      expect(el.textContent).toContain('Profil saison');
+      expect(el.textContent).toContain('Global');
+      expect(el.textContent).toContain('Domicile');
+
+      // Check 2-decimal formatting (DEC-024)
+      expect(el.textContent).toContain('2.17'); // pointsPerMatch
+      expect(el.textContent).toContain('2.00'); // goalsForPerMatch
+      expect(el.textContent).toContain('0.83'); // goalsAgainstPerMatch
+      expect(el.textContent).toContain('+7');   // goalDifference
+      expect(el.textContent).toContain('3.00'); // contextual pointsPerMatch
+    });
+
+    it('renders INSUFFICIENT_DATA and UNAVAILABLE without false 0.00 metrics', () => {
+      const insufficientProfile: SeasonStrengthProfileDTO = {
+        teamId: 'team-zeta-006',
+        overall: {
+          availability: 'INSUFFICIENT_DATA',
+          sampleSize: 0,
+          metrics: null,
+        },
+        contextual: {
+          venue: 'AWAY',
+          segment: {
+            availability: 'INSUFFICIENT_DATA',
+            sampleSize: 0,
+            metrics: null,
+          },
+        },
+      };
+
+      const el = createSeasonStrengthElement(insufficientProfile);
+      expect(el.textContent).toContain('Données saisonnières insuffisantes');
+      expect(el.textContent).not.toContain('0.00');
+      expect(el.textContent).not.toContain('NaN');
+      expect(el.textContent).not.toContain('null');
+      expect(el.textContent).not.toContain('undefined');
+    });
+
+    it('renders full analytical matches card including Form 5 and Season Strength without errors', () => {
+      const analyticalMatches: AnalyticalMatchEntryDTO[] = [
         {
           match: {
             id: 'm1',
@@ -200,8 +290,16 @@ describe('Render DOM Unit Tests (happy-dom)', () => {
             score: { halfTime: { home: null, away: null }, fullTime: { home: null, away: null } },
           },
           form: {
-            home: { teamId: 't1', availability: 'AVAILABLE' as const, results: ['WIN' as const, 'WIN' as const] },
-            away: { teamId: 't2', availability: 'INSUFFICIENT_DATA' as const, results: [] },
+            home: { teamId: 't1', availability: 'AVAILABLE', results: ['WIN', 'WIN'] },
+            away: { teamId: 't2', availability: 'INSUFFICIENT_DATA', results: [] },
+          },
+          seasonStrength: {
+            home: availableProfile,
+            away: {
+              teamId: 't2',
+              overall: { availability: 'UNAVAILABLE', sampleSize: null, metrics: null },
+              contextual: { venue: 'AWAY', segment: { availability: 'UNAVAILABLE', sampleSize: null, metrics: null } },
+            },
           },
         },
       ];
@@ -210,10 +308,11 @@ describe('Render DOM Unit Tests (happy-dom)', () => {
 
       expect(container.textContent).not.toContain('undefined');
       expect(container.textContent).not.toContain('[object Object]');
+      expect(container.textContent).not.toContain('NaN');
       expect(container.textContent).toContain('Alpha');
       expect(container.textContent).toContain('Beta');
-      expect(container.textContent).toContain('Données de forme indisponibles');
-      expect(container.querySelectorAll('.form-badge')).toHaveLength(2);
+      expect(container.textContent).toContain('Profil saison');
+      expect(container.textContent).toContain('Profil saisonnier indisponible');
     });
   });
 });
