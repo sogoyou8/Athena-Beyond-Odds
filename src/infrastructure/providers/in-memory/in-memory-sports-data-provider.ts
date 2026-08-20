@@ -431,22 +431,39 @@ export class InMemorySportsDataProvider implements SportsDataProvider {
   }
 
   /**
-   * Retourne les matchs FL1 filtrés par plage temporelle optionnelle.
+   * Retourne les matchs FL1 filtrés par plage temporelle optionnelle ou par filtre historique multi-saison.
    * Retourne un tableau vide pour toute autre compétition.
    *
    * Phase 3.2 : retourne aussi les matchs FINISHED.
-   * Le filtrage métier par statut est délégué à la couche Application (DEC-019.5).
+   * Phase 3.4 : supporte historyFilter (DEC-027) :
+   * - Si seasonIds est spécifié, filtre strictement les matchs dont seasonId appartient à la liste.
+   * - Si seasonCount est spécifié sans dates, conserve les N saisons les plus récentes présentes dans le corpus.
+   * - Si historyFilter est fourni sans dates, respecte les contraintes et retourne le corpus borné.
+   * Le filtrage métier fin par statut et cutoff est complété par le Domain Calculator (DEC-027 §7.1).
    */
   getMatches(
     competitionCode: string,
     fromDate?: Date,
-    toDate?: Date
+    toDate?: Date,
+    historyFilter?: import('../../../application/ports/sports-data-provider.js').HistoryFilter
   ): Promise<Match[]> {
     if (competitionCode !== 'FL1') {
       return Promise.resolve([]);
     }
 
     let matches = [...FL1_ALL_MATCHES];
+
+    // Filtrage par identifiants explicites de saisons si fournis (DEC-027 Option 3B)
+    if (historyFilter?.seasonIds && historyFilter.seasonIds.length > 0) {
+      const allowed = new Set(historyFilter.seasonIds);
+      matches = matches.filter((m) => allowed.has(m.seasonId));
+    } else if (historyFilter?.seasonCount && historyFilter.seasonCount > 0) {
+      // Filtrage borné par nombre de saisons (conserve les N saisons distinctes les plus récentes du corpus)
+      const seasonsInCorpus = Array.from(new Set(matches.map((m) => m.seasonId)));
+      // Trie les saisons par ordre décroissant (ou conserve les N premières disponibles)
+      const allowedSeasons = new Set(seasonsInCorpus.slice(0, historyFilter.seasonCount));
+      matches = matches.filter((m) => allowedSeasons.has(m.seasonId));
+    }
 
     // Filtrage temporel strict (DEC-020) :
     // Les bornes explicites sont toujours respectées — même si le résultat est [].
