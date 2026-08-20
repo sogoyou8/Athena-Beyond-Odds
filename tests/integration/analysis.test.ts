@@ -63,8 +63,9 @@ describe('GET /competitions/FL1/matches/analysis (Form 5)', () => {
       .expect(404);
   });
 
-  it('anti N+1 proof: calling analysis execute performs at most 2 getMatches calls to provider (1 primary + 1 mutualized historical)', async () => {
+  it('anti N+1 proof: calling analysis execute performs at most 2 getMatches calls to provider (1 primary + 1 mutualized historical) per DEC-020', async () => {
     let callsCount = 0;
+    const recordedCalls: { code: string; fromDate?: Date; toDate?: Date }[] = [];
     const innerProvider = new InMemorySportsDataProvider();
 
     const spyProvider: SportsDataProvider = {
@@ -73,6 +74,7 @@ describe('GET /competitions/FL1/matches/analysis (Form 5)', () => {
       },
       getMatches(code: string, fromDate?: Date, toDate?: Date): Promise<Match[]> {
         callsCount++;
+        recordedCalls.push({ code, fromDate, toDate });
         return innerProvider.getMatches(code, fromDate, toDate);
       },
       getMatchDetails(id: string): Promise<Match> {
@@ -88,6 +90,16 @@ describe('GET /competitions/FL1/matches/analysis (Form 5)', () => {
 
     // 3 scheduled matches analyzed, but EXACTLY 2 getMatches provider calls made (1 primary + 1 mutualized historical)
     expect(callsCount).toBe(2);
+
+    // Call 1: primary call with explicit date window (DEC-020.6)
+    expect(recordedCalls[0].code).toBe('FL1');
+    expect(recordedCalls[0].fromDate).toBeInstanceOf(Date);
+    expect(recordedCalls[0].toDate).toBeInstanceOf(Date);
+
+    // Call 2: historical mutualized call without date bounds (DEC-020.7 / M-001)
+    expect(recordedCalls[1].code).toBe('FL1');
+    expect(recordedCalls[1].fromDate).toBeUndefined();
+    expect(recordedCalls[1].toDate).toBeUndefined();
   });
 
   it('M-002 graceful degradation: returns HTTP 200 with UNAVAILABLE form when historical provider call fails', async () => {
@@ -102,7 +114,7 @@ describe('GET /competitions/FL1/matches/analysis (Form 5)', () => {
         callIndex++;
         if (callIndex === 1) {
           // Primary call succeeds
-          return innerProvider.getMatches(code);
+          return innerProvider.getMatches(code, fromDate, toDate);
         }
         // Historical call fails
         throw new Error('Historical provider network failure');

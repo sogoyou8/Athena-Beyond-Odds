@@ -7,10 +7,10 @@
  * - La Form 5 de l'équipe domicile ;
  * - La Form 5 de l'équipe extérieure.
  *
- * Stratégie anti N+1 (DEC-019.9) :
- * 1. Récupération principale : `provider.getMatches(competitionCode)` pour obtenir les matchs programmés.
- * 2. Récupération historique : 1 SEULE requête mutualisée `provider.getMatches(competitionCode, seasonStartDate, maxTargetDate)`
- *    déterminée dynamiquement à partir des bornes réelles de la saison courante contenue dans les matchs programmés.
+ * Stratégie anti N+1 (DEC-019.9 / DEC-020) :
+ * 1. Récupération principale : `provider.getMatches(competitionCode, now, now+7j)` pour obtenir les matchs programmés avec fenêtre explicite.
+ * 2. Récupération historique : 1 SEULE requête mutualisée `provider.getMatches(competitionCode)` sans dates
+ *    pour récupérer les matchs de la saison courante selon la sémantique DEC-020.
  *    Aucune récupération par équipe ou par carte n'est effectuée (0 N+1).
  *
  * Dégradation gracieuse (DEC-019.8 / M-002) :
@@ -26,6 +26,7 @@ import { Match } from '../../domain/entities/match.js';
 import { TeamForm } from '../../domain/value-objects/form-result.js';
 import { FormCalculator } from '../../domain/services/form-calculator.js';
 import { CompetitionNotAvailableError } from './list-scheduled-matches.js';
+import { addUtcDays } from '../../shared/date-utils.js';
 
 // ---------------------------------------------------------------------------
 // Types de résultat
@@ -50,11 +51,22 @@ export interface AnalyticalMatchesResult {
 
 export class ListAnalyticalMatchesUseCase {
   private readonly calculator = new FormCalculator();
+  private readonly clockFn: () => Date;
 
-  constructor(private readonly provider: SportsDataProvider) {}
+  constructor(
+    private readonly provider: SportsDataProvider,
+    clockFn?: () => Date
+  ) {
+    this.clockFn = clockFn ?? (() => new Date());
+  }
 
   /**
    * Retourne les matchs SCHEDULED enrichis de Form 5 pour la compétition demandée.
+   *
+   * Conformément à DEC-020 :
+   * 1. Appel principal : `provider.getMatches(code, now, now+7j)` avec fenêtre explicite.
+   * 2. Appel historique : 1 SEUL appel mutualisé `provider.getMatches(code)` sans dates pour la saison courante.
+   * 3. Dégradation M-002 : si l'appel historique échoue, les matchs principaux sont conservés et les formes marquées UNAVAILABLE.
    *
    * @param competitionCode Code de compétition normalisé (seul "FL1" est accepté)
    * @throws CompetitionNotAvailableError si le code n'est pas "FL1"
@@ -65,9 +77,16 @@ export class ListAnalyticalMatchesUseCase {
     }
 
     // -----------------------------------------------------------------------
-    // Étape 1 : Récupération principale (matchs à afficher)
+    // Étape 1 : Récupération principale avec fenêtre explicite (DEC-020.6)
     // -----------------------------------------------------------------------
-    const primaryMatches = await this.provider.getMatches(competitionCode);
+    const now = this.clockFn();
+    const scheduledTo = addUtcDays(now, 7);
+
+    const primaryMatches = await this.provider.getMatches(
+      competitionCode,
+      now,
+      scheduledTo
+    );
     const scheduledMatches = primaryMatches.filter((m) => m.status === 'SCHEDULED');
 
     if (scheduledMatches.length === 0) {
@@ -75,36 +94,15 @@ export class ListAnalyticalMatchesUseCase {
     }
 
     // -----------------------------------------------------------------------
-    // Étape 2 : Déterminer dynamiquement les bornes de saison à partir des matchs
-    // - seasonStart: 1er juillet UTC de l'année de début de la saison courante (ex: 2099-07-01 pour 2099-2100)
-    // - maxTargetDate: date max du match cible le plus éloigné
+    // Étape 2 : Récupération historique MUTUALISÉE sans dates (DEC-020.7 / M-001)
+    // getMatches(competitionCode) sans dates demande contractuellement la saison courante.
     // -----------------------------------------------------------------------
     let historicalMatches: Match[] | null = null;
 
     try {
-      // Trouver la date minimale / maximale des matchs et déterminer l'année de saison
-      const earliestScheduledDate = new Date(
-        Math.min(...scheduledMatches.map((m) => m.utcDate.getTime()))
-      );
-      const latestScheduledDate = new Date(
-        Math.max(...scheduledMatches.map((m) => m.utcDate.getTime()))
-      );
-
-      // Année de départ de saison : si le match est en juillet ou après -> même année, sinon année précédente
-      const year = earliestScheduledDate.getUTCMonth() >= 6
-        ? earliestScheduledDate.getUTCFullYear()
-        : earliestScheduledDate.getUTCFullYear() - 1;
-
-      const seasonStartDate = new Date(Date.UTC(year, 6, 1, 0, 0, 0, 0)); // 1er juillet UTC
-
-      // Récupération historique MUTUALISÉE (1 seul appel provider) avec bornes explicites (M-001)
-      historicalMatches = await this.provider.getMatches(
-        competitionCode,
-        seasonStartDate,
-        latestScheduledDate
-      );
+      historicalMatches = await this.provider.getMatches(competitionCode);
     } catch {
-      // M-002: Isolement dégradation gracieuse. Si l'appel historique échoue, historicalMatches reste null.
+      // M-002 : Isolement dégradation gracieuse. Si l'appel historique échoue, historicalMatches reste null.
       historicalMatches = null;
     }
 

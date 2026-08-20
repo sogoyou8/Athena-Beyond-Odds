@@ -4,18 +4,20 @@
  *
  * Implémentation Phase 2.8 — Connexion réelle à l'API football-data.org v4.
  *
- * Principes et garde-fous (DEC-006 / DEC-019) :
+ * Principes et garde-fous (DEC-006 / DEC-019 / DEC-020) :
  * 1. Utilise globalThis.fetch natif sans dépendance npm. Transport HTTP injectable.
  * 2. Authentification via en-tête X-Auth-Token. Aucun token dans les logs ou les URL.
  * 3. Clé API transmise via le constructeur.
- * 4. Fenêtre temporelle [dateFrom, dateFrom + 7 jours) UTC (dateTo exclusive). Horloge injectable.
+ * 4. Sémantique temporelle (DEC-020) :
+ *    - Sans dates : demande la saison courante sans fabriquer de query params artificiels.
+ *    - Avec dates : transmet les bornes UTC demandées.
  * 5. Le provider normalise TOUS les matchs retournés (SCHEDULED, FINISHED, LIVE, etc.).
  *    Le filtrage métier par statut est délégué à la couche Application (DEC-019.5).
  * 6. Délai maximal de 8 secondes par requête via AbortController.
  * 7. HTTP 429 -> ProviderRateLimitError (puis HTTP 429).
  * 8. Erreurs réseau, timeout, HTTP 401, 403, 5xx, JSON invalide, mapping incompatible -> ProviderUnavailableError (puis HTTP 503).
  *
- * Références : phase-2-8-real-provider-validation-pack.md (DEC-006) / DEC-019
+ * Références : phase-2-8-real-provider-validation-pack.md (DEC-006) / DEC-019 / DEC-020
  */
 
 import { SportsDataProvider } from '../../../application/ports/sports-data-provider.js';
@@ -121,29 +123,36 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
     throw new NotImplementedError('FootballDataOrgAdapter.getCompetitions');
   }
 
+  /**
+   * Récupère les matchs d'une compétition.
+   * Conforme à DEC-020 :
+   * - Sans dates : récupère les matchs de la saison courante sans fabriquer de query params artificiels.
+   * - Avec dates : transmet les bornes UTC demandées.
+   */
   async getMatches(
     competitionCode: string,
     fromDate?: Date,
     toDate?: Date
   ): Promise<Match[]> {
-    let dateFromStr: string;
-    let dateToStr: string;
+    let queryParams = '';
+    let dateFromStr = '';
+    let dateToStr = '';
 
     if (fromDate !== undefined && toDate !== undefined) {
-      // Both explicit bounds provided — use them as-is (DEC-008.3 / Option A).
       dateFromStr = formatUtcDate(fromDate);
       dateToStr = formatUtcDate(toDate);
-    } else {
-      // Default: rolling 7-day UTC window starting from now.
-      const now = this.clockFn();
-      dateFromStr = formatUtcDate(now);
-      const endDate = addUtcDays(now, 7);
-      dateToStr = formatUtcDate(endDate);
+      queryParams = `?dateFrom=${dateFromStr}&dateTo=${dateToStr}`;
+    } else if (fromDate !== undefined) {
+      dateFromStr = formatUtcDate(fromDate);
+      queryParams = `?dateFrom=${dateFromStr}`;
+    } else if (toDate !== undefined) {
+      dateToStr = formatUtcDate(toDate);
+      queryParams = `?dateTo=${dateToStr}`;
     }
 
     const url = `${this.baseUrl}/competitions/${encodeURIComponent(
       competitionCode
-    )}/matches?dateFrom=${dateFromStr}&dateTo=${dateToStr}`;
+    )}/matches${queryParams}`;
 
     safeObserve(this.observer, {
       type: 'provider_request_started',

@@ -33,6 +33,36 @@ describe('ListScheduledMatchesUseCase', () => {
       expect(result).toHaveProperty('matches');
       expect(Array.isArray(result.matches)).toBe(true);
     });
+
+    it('transmet explicitement la fenêtre [now, now+7j) au provider et filtre SCHEDULED (DEC-020)', async () => {
+      const fixedNow = new Date('2099-08-10T12:00:00.000Z');
+      let capturedFrom: Date | undefined;
+      let capturedTo: Date | undefined;
+
+      const spyProvider = {
+        getCompetitions: () => provider.getCompetitions(),
+        getMatches: async (code: string, fromDate?: Date, toDate?: Date) => {
+          capturedFrom = fromDate;
+          capturedTo = toDate;
+          return provider.getMatches(code, fromDate, toDate);
+        },
+        getMatchDetails: (id: string) => provider.getMatchDetails(id),
+      };
+
+      const customUseCase = new ListScheduledMatchesUseCase(
+        spyProvider,
+        () => fixedNow
+      );
+
+      const result = await customUseCase.execute('FL1');
+
+      expect(capturedFrom).toEqual(fixedNow);
+      expect(capturedTo).toEqual(new Date('2099-08-17T12:00:00.000Z'));
+      expect(result.matches).toHaveLength(3);
+      for (const m of result.matches) {
+        expect(m.status).toBe('SCHEDULED');
+      }
+    });
   });
 
   describe('execute() for unknown competition', () => {

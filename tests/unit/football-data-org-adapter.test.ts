@@ -45,9 +45,9 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
     const [callUrl, callInit] = mockFetch.mock.calls[0];
-    expect(callUrl).toContain('https://api.football-data.org/v4/competitions/FL1/matches');
-    expect(callUrl).toContain('dateFrom=2026-07-30');
-    expect(callUrl).toContain('dateTo=2026-08-06');
+    expect(callUrl).toBe('https://api.football-data.org/v4/competitions/FL1/matches');
+    expect(callUrl).not.toContain('dateFrom=');
+    expect(callUrl).not.toContain('dateTo=');
     expect(callInit?.headers).toEqual({
       'X-Auth-Token': 'test-api-key-123',
       Accept: 'application/json',
@@ -253,7 +253,7 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
     expect(callUrl).not.toContain('dateTo=2026-08-06');
   });
 
-  it('utilise la fenêtre par défaut [now, now+7j) quand aucune borne n\'est fournie', async () => {
+  it('demande les matchs de la saison courante sans query params quand aucune date n\'est fournie (DEC-020)', async () => {
     const mockFetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ matches: [] }), { status: 200 })
     );
@@ -261,17 +261,18 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
     const adapter = new FootballDataOrgAdapter({
       apiKey: 'test-key',
       fetchFn: mockFetch,
-      clockFn: mockClock, // maintenant 2026-07-30
+      clockFn: mockClock,
     });
 
     await adapter.getMatches('FL1');
 
     const [callUrl] = mockFetch.mock.calls[0];
-    expect(callUrl).toContain('dateFrom=2026-07-30');
-    expect(callUrl).toContain('dateTo=2026-08-06');
+    expect(callUrl).toBe('https://api.football-data.org/v4/competitions/FL1/matches');
+    expect(callUrl).not.toContain('dateFrom=');
+    expect(callUrl).not.toContain('dateTo=');
   });
 
-  it('utilise la fenêtre par défaut [now, now+7j) quand seule fromDate est fournie', async () => {
+  it('transmet uniquement dateFrom quand seule fromDate est fournie', async () => {
     const mockFetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ matches: [] }), { status: 200 })
     );
@@ -282,15 +283,14 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
       clockFn: mockClock,
     });
 
-    // Une seule borne → comportement par défaut
     await adapter.getMatches('FL1', new Date('2026-09-01T00:00:00Z'), undefined);
 
     const [callUrl] = mockFetch.mock.calls[0];
-    expect(callUrl).toContain('dateFrom=2026-07-30');
-    expect(callUrl).toContain('dateTo=2026-08-06');
+    expect(callUrl).toContain('dateFrom=2026-09-01');
+    expect(callUrl).not.toContain('dateTo=');
   });
 
-  it('utilise la fenêtre par défaut [now, now+7j) quand seule toDate est fournie', async () => {
+  it('transmet uniquement dateTo quand seule toDate est fournie', async () => {
     const mockFetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ matches: [] }), { status: 200 })
     );
@@ -301,16 +301,15 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
       clockFn: mockClock,
     });
 
-    // Une seule borne → comportement par défaut
     await adapter.getMatches('FL1', undefined, new Date('2026-09-08T00:00:00Z'));
 
     const [callUrl] = mockFetch.mock.calls[0];
-    expect(callUrl).toContain('dateFrom=2026-07-30');
-    expect(callUrl).toContain('dateTo=2026-08-06');
+    expect(callUrl).toContain('dateTo=2026-09-08');
+    expect(callUrl).not.toContain('dateFrom=');
   });
 
   describe('Phase 2.11 — Observabilité de l\'Adaptateur Fournisseur (DEC-009)', () => {
-    it('émet provider_request_started et provider_request_succeeded lors d\'une requête réussie', async () => {
+    it('émet provider_request_started et provider_request_succeeded lors d\'une requête réussie avec dates explicites', async () => {
       const observer = vi.fn();
       const mockFetch = vi.fn().mockResolvedValue(
         new Response(JSON.stringify({ matches: [] }), { status: 200 })
@@ -330,7 +329,9 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
         observer,
       });
 
-      await adapter.getMatches('FL1');
+      const from = new Date('2026-07-30T12:00:00.000Z');
+      const to = new Date('2026-08-06T12:00:00.000Z');
+      await adapter.getMatches('FL1', from, to);
 
       expect(observer).toHaveBeenCalledTimes(2);
 
@@ -347,6 +348,47 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
         dateFrom: '2026-07-30',
         dateTo: '2026-08-06',
         durationMs: 50,
+        matchCount: 0,
+      });
+    });
+
+    it('émet provider_request_started et provider_request_succeeded sans dates lors d\'une requête sans bornes (DEC-020)', async () => {
+      const observer = vi.fn();
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ matches: [] }), { status: 200 })
+      );
+
+      let timeCall = 0;
+      const durationClock = () => {
+        timeCall += 40;
+        return timeCall;
+      };
+
+      const adapter = new FootballDataOrgAdapter({
+        apiKey: 'test-key',
+        fetchFn: mockFetch,
+        clockFn: mockClock,
+        durationClock,
+        observer,
+      });
+
+      await adapter.getMatches('FL1');
+
+      expect(observer).toHaveBeenCalledTimes(2);
+
+      expect(observer).toHaveBeenNthCalledWith(1, {
+        type: 'provider_request_started',
+        competitionCode: 'FL1',
+        dateFrom: '',
+        dateTo: '',
+      });
+
+      expect(observer).toHaveBeenNthCalledWith(2, {
+        type: 'provider_request_succeeded',
+        competitionCode: 'FL1',
+        dateFrom: '',
+        dateTo: '',
+        durationMs: 40,
         matchCount: 0,
       });
     });

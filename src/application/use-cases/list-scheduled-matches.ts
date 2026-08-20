@@ -10,6 +10,7 @@
 
 import { SportsDataProvider } from '../ports/sports-data-provider.js';
 import { Match } from '../../domain/entities/match.js';
+import { addUtcDays } from '../../shared/date-utils.js';
 
 // ---------------------------------------------------------------------------
 // Erreur métier — compétition non disponible
@@ -43,10 +44,21 @@ export interface ScheduledMatchesResult {
 // ---------------------------------------------------------------------------
 
 export class ListScheduledMatchesUseCase {
-  constructor(private readonly provider: SportsDataProvider) {}
+  private readonly clockFn: () => Date;
+
+  constructor(
+    private readonly provider: SportsDataProvider,
+    clockFn?: () => Date
+  ) {
+    this.clockFn = clockFn ?? (() => new Date());
+  }
 
   /**
    * Retourne les matchs SCHEDULED pour la compétition demandée.
+   *
+   * Conformément à DEC-020.5 :
+   * - Transmet explicitement la fenêtre [now, now + 7 jours) UTC au provider.
+   * - Filtre les matchs reçus pour ne conserver que les statuts SCHEDULED.
    *
    * @param competitionCode Code de compétition normalisé (seul "FL1" est accepté)
    * @throws CompetitionNotAvailableError si le code n'est pas "FL1"
@@ -56,7 +68,14 @@ export class ListScheduledMatchesUseCase {
       throw new CompetitionNotAvailableError(competitionCode);
     }
 
-    const allMatches = await this.provider.getMatches(competitionCode);
+    const now = this.clockFn();
+    const scheduledTo = addUtcDays(now, 7);
+
+    const allMatches = await this.provider.getMatches(
+      competitionCode,
+      now,
+      scheduledTo
+    );
     const scheduledMatches = allMatches.filter(
       (match) => match.status === 'SCHEDULED'
     );
