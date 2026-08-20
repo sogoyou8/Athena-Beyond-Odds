@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.7
+> **Version :** 2.8
 
 # Decision Log
 
@@ -1170,3 +1170,25 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 8. **DEC-028.8 — Fusion et traçabilité Git :** PR d'implémentation #36 fusionnée par `Create a merge commit` (`ba43b6de03d037425c5ec0c3369de565b7f7330a`), branche source `implementation/phase-3-4-contextual-h2h` conservée sur le remote.
 9. **DEC-028.9 — Absence de pouvoir prédictif :** La brique H2H reste un composant purement descriptif et contextuel. Elle ne produit aucune cote, probabilité, EV, Kelly ou score synthétique et ne constitue pas un Decision Engine.
 10. **DEC-028.10 — Suites et prochaine étape :** Aucune phase analytique ultérieure (Phase 3.5+) n'est ouverte automatiquement. La prochaine brique fera l'objet d'un cadrage et d'un arbitrage formel séparé par le Fondateur.
+
+---
+
+## DEC-029 — Phase 3.5 — Cadrage de Repos & Congestion
+
+- **Date :** 2026-08-20
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Document de référence :** `docs/03-technical-architecture/phase-3-5-rest-congestion-framing.md`
+
+### Résumé des arbitrages de cadrage DEC-029
+
+1. **DEC-029.1 — Ouverture officielle de la Phase 3.5 :** La Phase 3.5 « Repos & Congestion » est ouverte en cadrage produit. Aucun code, aucune implémentation, aucun appel provider réel n'est autorisé à ce stade.
+2. **DEC-029.2 — Nom et nature (OQ-029 / OQ-030) :** Nom officiel retenu : **Repos & Congestion** (`REST_AND_CONGESTION`). Le terme « Fatigue » est formellement rejeté. Nature : descriptive / déterministe / explicable / non prédictive. Aucun score physiologique ni prédictif.
+3. **DEC-029.3 — Métriques retenues (OQ-031 à OQ-034 / OQ-041) :** `daysSinceLastMatch`, `matchesLast7Days`, `matchesLast14Days`, `matchesLast28Days`, `minimumRestDaysInLast14Days`, `shortRest`. DTO conceptuel : `ScheduleLoadProfile` par équipe (`home` / `away`). Seuil repos court : `daysSinceLastMatch <= 3`. Zéros dans les fenêtres = données factuelles valides (≠ faux zéro H2H).
+4. **DEC-029.4 — Périmètre compétitif et saisons (OQ-035 / OQ-054) :** Même compétition uniquement (`SAME_COMPETITION_ONLY_V1`), explicitement mentionné dans l'UI. Politique de frontière de saison : `SEASON_BOUNDARY_WITH_28_DAY_CARRYOVER` — saison cible toujours éligible ; N-1 éligible uniquement si dans les 28 jours précédant le match cible ; N-2 exclu ; aucun fallback provider vers N-1.
+5. **DEC-029.5 — Éligibilité des matchs (OQ-036 / OQ-037 / OQ-038) :** Statut `FINISHED` uniquement ; score de match non requis ; coupure stricte `utcDate < targetMatch.utcDate` sans `Date.now()` ; aucun précédent éligible → `INSUFFICIENT_DATA`.
+6. **DEC-029.6 — Modèle de disponibilité (OQ-039 / OQ-040) :** Statuts `AVAILABLE` / `INSUFFICIENT_DATA` / `UNAVAILABLE` réutilisés. Dégradation locale : Match Center préservé, briques Form 5 / Season Strength / H2H indépendantes.
+7. **DEC-029.7 — Interdictions (OQ-042 / OQ-043 / OQ-047 à OQ-052) :** Scores composites interdits (`scheduleLoadScore`, `fatigueScore`, etc.). Pas de comparaison automatique entre équipes. Pas de segmentation domicile/extérieur/même lieu. Calendrier futur hors périmètre v1. Briques Form 5, Season Strength et H2H entièrement séparées. Terminologie physiologique interdite.
+8. **DEC-029.8 — Contraintes architecturales (OQ-044 à OQ-046) :** Corpus historique mutualisé Phase 3.4 réutilisé (à vérifier en DEC-030). Budget maintenu : $\le 2$ invocations logiques Application. N+1 strictement interdit — complexité réseau $O(1)$. Aucun nouvel appel provider.
+9. **DEC-029.9 — Frontend (OQ-049) :** Bloc compact factuel « Repos & Congestion » par carte. Pas de graphique, pas de jauge rouge/verte, pas de score synthétique, pas de nouvel état global frontend.
+10. **DEC-029.10 — Prochaine étape :** DEC-030 (conception technique Repos & Congestion) fera l'objet d'un gate séparé après fusion du présent document. DEC-030 devra prouver que le corpus mutualisé Phase 3.4 couvre les fenêtres 7 / 14 / 28 jours et la politique `SEASON_BOUNDARY_WITH_28_DAY_CARRYOVER` sans requérir de nouvel appel provider.
