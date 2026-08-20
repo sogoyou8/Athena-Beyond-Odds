@@ -1,12 +1,15 @@
 /**
- * Fournisseur factice en mémoire — Phase 2.7.
+ * Fournisseur factice en mémoire — Phase 2.7 / Phase 3.2 Form 5.
  * Couche Infrastructure — implémente le port SportsDataProvider.
  *
  * Données entièrement fictives, déterministes et statiques.
  * Aucun appel réseau. Aucune lecture de variable d'environnement.
  * Aucune génération aléatoire. Aucune utilisation de l'horloge système.
  *
- * Référence : phase-2-7-functional-slice-validation-pack.md (DEC-005)
+ * Phase 3.2 : ajout de matchs FINISHED pour les tests Form 5.
+ * Tous les matchs FINISHED sont antérieurs aux matchs SCHEDULED (anti look-ahead).
+ *
+ * Référence : phase-2-7-functional-slice-validation-pack.md (DEC-005) / DEC-019
  */
 
 import { SportsDataProvider } from '../../../application/ports/sports-data-provider.js';
@@ -98,20 +101,26 @@ const TEAM_ZETA = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// Données fictives statiques — saison
+// Constantes de saison / compétition
 // ---------------------------------------------------------------------------
 
-const SEASON_2099 = {
-  id: 'season-fl1-2099',
-  startYear: 2099,
-  endYear: 2100,
-  currentMatchday: 1,
-  providerMetadata: {
-    providerName: 'in-memory',
-    externalId: 'season-2099',
-    lastUpdated: new Date('2099-01-01T00:00:00.000Z'),
-  },
-} as const;
+export const IN_MEMORY_SEASON_ID = 'season-fl1-2099';
+export const IN_MEMORY_COMPETITION_ID = 'comp-fl1';
+
+/**
+ * Référence temporelle déterministe du dataset de développement InMemory.
+ *
+ * Cette constante représente le « maintenant » cohérent avec les fixtures 2099.
+ * Elle est utilisée uniquement pour le wiring local (mode in-memory) afin d'injecter
+ * une horloge déterministe dans ListScheduledMatchesUseCase et ListAnalyticalMatchesUseCase.
+ *
+ * Choisie antérieure aux 3 fixtures SCHEDULED (2099-08-14 / 15 / 16) et dans la
+ * fenêtre de 7 jours qui les contient : [2099-08-10, 2099-08-17].
+ *
+ * NE constitue PAS une règle de début de saison.
+ * NE constitue PAS un paramètre business.
+ */
+export const IN_MEMORY_REFERENCE_NOW = new Date('2099-08-10T12:00:00.000Z');
 
 // ---------------------------------------------------------------------------
 // Score vide (matchs programmés — aucun résultat encore)
@@ -123,14 +132,14 @@ const EMPTY_SCORE = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// Trois matchs fictifs — dates fixes approuvées par DEC-005
+// Matchs SCHEDULED — dates fixes approuvées par DEC-005
 // ---------------------------------------------------------------------------
 
-const FL1_MATCHES: Match[] = [
+const FL1_SCHEDULED: Match[] = [
   {
     id: 'match-fl1-001',
-    competitionId: 'comp-fl1',
-    seasonId: 'season-fl1-2099',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
     matchday: 1,
     utcDate: new Date('2099-08-14T18:00:00.000Z'),
     status: 'SCHEDULED' as MatchStatus,
@@ -145,8 +154,8 @@ const FL1_MATCHES: Match[] = [
   },
   {
     id: 'match-fl1-002',
-    competitionId: 'comp-fl1',
-    seasonId: 'season-fl1-2099',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
     matchday: 1,
     utcDate: new Date('2099-08-15T20:00:00.000Z'),
     status: 'SCHEDULED' as MatchStatus,
@@ -161,8 +170,8 @@ const FL1_MATCHES: Match[] = [
   },
   {
     id: 'match-fl1-003',
-    competitionId: 'comp-fl1',
-    seasonId: 'season-fl1-2099',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
     matchday: 1,
     utcDate: new Date('2099-08-16T19:30:00.000Z'),
     status: 'SCHEDULED' as MatchStatus,
@@ -178,6 +187,238 @@ const FL1_MATCHES: Match[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Matchs FINISHED — historique Form 5 (tous antérieurs à 2099-08-14)
+//
+// Alpha FC  : 6 matchs (>5 — max 5 retenus après tri)
+// Beta      : 2 matchs
+// Gamma     : 4 matchs
+// Delta     : 4 matchs
+// Epsilon   : 1 match  (cas 1 résultat)
+// Zeta      : 0 match  (cas INSUFFICIENT_DATA)
+// ---------------------------------------------------------------------------
+
+const FL1_FINISHED: Match[] = [
+  // Alpha FC - matchday 5 (le plus récent) : WIN domicile
+  {
+    id: 'hist-fl1-101',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 5,
+    utcDate: new Date('2099-08-10T18:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_ALPHA,
+    awayTeam: TEAM_GAMMA,
+    score: { halfTime: { home: 1, away: 0 }, fullTime: { home: 2, away: 1 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-101', lastUpdated: new Date('2099-08-10T20:00:00.000Z') },
+  },
+  // Alpha FC - matchday 4 : WIN extérieur
+  {
+    id: 'hist-fl1-102',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 4,
+    utcDate: new Date('2099-08-07T18:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_DELTA,
+    awayTeam: TEAM_ALPHA,
+    score: { halfTime: { home: 0, away: 1 }, fullTime: { home: 0, away: 2 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-102', lastUpdated: new Date('2099-08-07T20:00:00.000Z') },
+  },
+  // Alpha FC - matchday 3 : DRAW
+  {
+    id: 'hist-fl1-103',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 3,
+    utcDate: new Date('2099-08-03T18:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_ALPHA,
+    awayTeam: TEAM_EPSILON,
+    score: { halfTime: { home: 0, away: 0 }, fullTime: { home: 1, away: 1 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-103', lastUpdated: new Date('2099-08-03T20:00:00.000Z') },
+  },
+  // Alpha FC - matchday 2 : LOSS domicile
+  {
+    id: 'hist-fl1-104',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 2,
+    utcDate: new Date('2099-07-28T18:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_ALPHA,
+    awayTeam: TEAM_BETA,
+    score: { halfTime: { home: 0, away: 1 }, fullTime: { home: 0, away: 2 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-104', lastUpdated: new Date('2099-07-28T20:00:00.000Z') },
+  },
+  // Alpha FC - matchday 2 (autre date) : LOSS extérieur
+  {
+    id: 'hist-fl1-105',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 2,
+    utcDate: new Date('2099-07-21T18:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_BETA,
+    awayTeam: TEAM_ALPHA,
+    score: { halfTime: { home: 2, away: 0 }, fullTime: { home: 3, away: 0 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-105', lastUpdated: new Date('2099-07-21T20:00:00.000Z') },
+  },
+  // Alpha FC - matchday 1 : WIN (6ème — exclu par max 5)
+  {
+    id: 'hist-fl1-106',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 1,
+    utcDate: new Date('2099-07-14T18:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_ALPHA,
+    awayTeam: TEAM_DELTA,
+    score: { halfTime: { home: 1, away: 0 }, fullTime: { home: 2, away: 0 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-106', lastUpdated: new Date('2099-07-14T20:00:00.000Z') },
+  },
+  // Beta United - 2 matchs
+  {
+    id: 'hist-fl1-201',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 3,
+    utcDate: new Date('2099-08-05T18:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_BETA,
+    awayTeam: TEAM_ALPHA,
+    score: { halfTime: { home: 1, away: 0 }, fullTime: { home: 2, away: 0 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-201', lastUpdated: new Date('2099-08-05T20:00:00.000Z') },
+  },
+  {
+    id: 'hist-fl1-202',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 2,
+    utcDate: new Date('2099-07-29T18:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_EPSILON,
+    awayTeam: TEAM_BETA,
+    score: { halfTime: { home: 1, away: 1 }, fullTime: { home: 1, away: 1 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-202', lastUpdated: new Date('2099-07-29T20:00:00.000Z') },
+  },
+  // Gamma City - 4 matchs
+  {
+    id: 'hist-fl1-301',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 4,
+    utcDate: new Date('2099-08-09T18:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_GAMMA,
+    awayTeam: TEAM_BETA,
+    score: { halfTime: { home: 0, away: 0 }, fullTime: { home: 1, away: 0 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-301', lastUpdated: new Date('2099-08-09T20:00:00.000Z') },
+  },
+  {
+    id: 'hist-fl1-302',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 3,
+    utcDate: new Date('2099-08-04T18:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_BETA,
+    awayTeam: TEAM_GAMMA,
+    score: { halfTime: { home: 0, away: 1 }, fullTime: { home: 1, away: 2 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-302', lastUpdated: new Date('2099-08-04T20:00:00.000Z') },
+  },
+  {
+    id: 'hist-fl1-303',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 2,
+    utcDate: new Date('2099-07-27T18:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_GAMMA,
+    awayTeam: TEAM_DELTA,
+    score: { halfTime: { home: 0, away: 1 }, fullTime: { home: 0, away: 1 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-303', lastUpdated: new Date('2099-07-27T20:00:00.000Z') },
+  },
+  {
+    id: 'hist-fl1-304',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 1,
+    utcDate: new Date('2099-07-20T18:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_DELTA,
+    awayTeam: TEAM_GAMMA,
+    score: { halfTime: { home: 0, away: 0 }, fullTime: { home: 0, away: 0 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-304', lastUpdated: new Date('2099-07-20T20:00:00.000Z') },
+  },
+  // Delta Athletic - 4 matchs
+  {
+    id: 'hist-fl1-401',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 4,
+    utcDate: new Date('2099-08-08T18:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_DELTA,
+    awayTeam: TEAM_EPSILON,
+    score: { halfTime: { home: 1, away: 0 }, fullTime: { home: 2, away: 1 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-401', lastUpdated: new Date('2099-08-08T20:00:00.000Z') },
+  },
+  {
+    id: 'hist-fl1-402',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 3,
+    utcDate: new Date('2099-08-02T18:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_BETA,
+    awayTeam: TEAM_DELTA,
+    score: { halfTime: { home: 1, away: 0 }, fullTime: { home: 2, away: 0 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-402', lastUpdated: new Date('2099-08-02T20:00:00.000Z') },
+  },
+  {
+    id: 'hist-fl1-403',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 2,
+    utcDate: new Date('2099-07-28T14:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_DELTA,
+    awayTeam: TEAM_ALPHA,
+    score: { halfTime: { home: 1, away: 1 }, fullTime: { home: 2, away: 2 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-403', lastUpdated: new Date('2099-07-28T16:00:00.000Z') },
+  },
+  {
+    id: 'hist-fl1-404',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 1,
+    utcDate: new Date('2099-07-21T14:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_GAMMA,
+    awayTeam: TEAM_DELTA,
+    score: { halfTime: { home: 0, away: 0 }, fullTime: { home: 0, away: 0 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-404', lastUpdated: new Date('2099-07-21T16:00:00.000Z') },
+  },
+  // Epsilon SC - 1 seul match (cas 1 résultat)
+  {
+    id: 'hist-fl1-501',
+    competitionId: IN_MEMORY_COMPETITION_ID,
+    seasonId: IN_MEMORY_SEASON_ID,
+    matchday: 3,
+    utcDate: new Date('2099-08-06T18:00:00.000Z'),
+    status: 'FINISHED' as MatchStatus,
+    homeTeam: TEAM_EPSILON,
+    awayTeam: TEAM_DELTA,
+    score: { halfTime: { home: 0, away: 0 }, fullTime: { home: 1, away: 0 } },
+    providerMetadata: { providerName: 'in-memory', externalId: 'hist-501', lastUpdated: new Date('2099-08-06T20:00:00.000Z') },
+  },
+  // Zeta Rovers : 0 match FINISHED intentionnel (cas INSUFFICIENT_DATA)
+];
+
+// Tous les matchs FL1 (SCHEDULED + FINISHED)
+const FL1_ALL_MATCHES: Match[] = [...FL1_SCHEDULED, ...FL1_FINISHED];
+
+// ---------------------------------------------------------------------------
 // Fournisseur factice
 // ---------------------------------------------------------------------------
 
@@ -190,18 +431,34 @@ export class InMemorySportsDataProvider implements SportsDataProvider {
   }
 
   /**
-   * Retourne les trois matchs fictifs pour FL1.
+   * Retourne les matchs FL1 filtrés par plage temporelle optionnelle.
    * Retourne un tableau vide pour toute autre compétition.
+   *
+   * Phase 3.2 : retourne aussi les matchs FINISHED.
+   * Le filtrage métier par statut est délégué à la couche Application (DEC-019.5).
    */
   getMatches(
     competitionCode: string,
-    _fromDate?: Date,
-    _toDate?: Date
+    fromDate?: Date,
+    toDate?: Date
   ): Promise<Match[]> {
-    if (competitionCode === 'FL1') {
-      return Promise.resolve([...FL1_MATCHES]);
+    if (competitionCode !== 'FL1') {
+      return Promise.resolve([]);
     }
-    return Promise.resolve([]);
+
+    let matches = [...FL1_ALL_MATCHES];
+
+    // Filtrage temporel strict (DEC-020) :
+    // Les bornes explicites sont toujours respectées — même si le résultat est [].
+    // Aucun fallback ne substitue les fixtures hors fenêtre.
+    if (fromDate !== undefined) {
+      matches = matches.filter((m) => m.utcDate >= fromDate);
+    }
+    if (toDate !== undefined) {
+      matches = matches.filter((m) => m.utcDate <= toDate);
+    }
+
+    return Promise.resolve(matches);
   }
 
   /**

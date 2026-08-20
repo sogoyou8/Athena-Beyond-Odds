@@ -3,11 +3,14 @@ import {
   ListScheduledMatchesUseCase,
   CompetitionNotAvailableError,
 } from '../../src/application/use-cases/list-scheduled-matches.js';
-import { InMemorySportsDataProvider } from '../../src/infrastructure/providers/in-memory/in-memory-sports-data-provider.js';
+import {
+  InMemorySportsDataProvider,
+  IN_MEMORY_REFERENCE_NOW,
+} from '../../src/infrastructure/providers/in-memory/in-memory-sports-data-provider.js';
 
 describe('ListScheduledMatchesUseCase', () => {
   const provider = new InMemorySportsDataProvider();
-  const useCase = new ListScheduledMatchesUseCase(provider);
+  const useCase = new ListScheduledMatchesUseCase(provider, () => IN_MEMORY_REFERENCE_NOW);
 
   describe('execute("FL1")', () => {
     it('returns an object with competitionCode equal to "FL1"', async () => {
@@ -32,6 +35,36 @@ describe('ListScheduledMatchesUseCase', () => {
       expect(result).toHaveProperty('competitionCode');
       expect(result).toHaveProperty('matches');
       expect(Array.isArray(result.matches)).toBe(true);
+    });
+
+    it('transmet explicitement la fenêtre [now, now+7j) au provider et filtre SCHEDULED (DEC-020)', async () => {
+      const fixedNow = new Date('2099-08-10T12:00:00.000Z');
+      let capturedFrom: Date | undefined;
+      let capturedTo: Date | undefined;
+
+      const spyProvider = {
+        getCompetitions: () => provider.getCompetitions(),
+        getMatches: async (code: string, fromDate?: Date, toDate?: Date) => {
+          capturedFrom = fromDate;
+          capturedTo = toDate;
+          return provider.getMatches(code, fromDate, toDate);
+        },
+        getMatchDetails: (id: string) => provider.getMatchDetails(id),
+      };
+
+      const customUseCase = new ListScheduledMatchesUseCase(
+        spyProvider,
+        () => fixedNow
+      );
+
+      const result = await customUseCase.execute('FL1');
+
+      expect(capturedFrom).toEqual(fixedNow);
+      expect(capturedTo).toEqual(new Date('2099-08-17T12:00:00.000Z'));
+      expect(result.matches).toHaveLength(3);
+      for (const m of result.matches) {
+        expect(m.status).toBe('SCHEDULED');
+      }
     });
   });
 

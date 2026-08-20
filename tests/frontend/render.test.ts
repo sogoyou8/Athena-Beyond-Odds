@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderUI, ClientState } from '../../src/frontend/ts/render.js';
+import { renderUI, ClientState, createFormBadges } from '../../src/frontend/ts/render.js';
 import { MatchDTO } from '../../src/frontend/ts/api-client.js';
 
 describe('Render DOM Unit Tests (happy-dom)', () => {
@@ -135,5 +135,85 @@ describe('Render DOM Unit Tests (happy-dom)', () => {
 
     expect(container.querySelector('.retry-btn')).toBeNull();
     expect(container.textContent).toContain('Seule la Ligue 1 (FL1) est disponible');
+  });
+
+  describe('Form 5 Rendering Unit Tests (M-003)', () => {
+    it('renders WIN, DRAW, LOSS as V, N, D with accessibility labels and CSS classes', () => {
+      const formEl = createFormBadges({
+        teamId: 't1',
+        availability: 'AVAILABLE',
+        results: ['WIN', 'DRAW', 'LOSS'],
+      });
+
+      const list = formEl.querySelector('.form-list');
+      expect(list).not.toBeNull();
+      expect(list?.getAttribute('aria-label')).toBe('Forme récente');
+
+      const badges = formEl.querySelectorAll('.form-badge');
+      expect(badges).toHaveLength(3);
+
+      expect(badges[0].textContent).toBe('V');
+      expect(badges[0].getAttribute('aria-label')).toBe('Victoire');
+      expect(badges[0].className).toContain('form-badge-win');
+
+      expect(badges[1].textContent).toBe('N');
+      expect(badges[1].getAttribute('aria-label')).toBe('Nul');
+      expect(badges[1].className).toContain('form-badge-draw');
+
+      expect(badges[2].textContent).toBe('D');
+      expect(badges[2].getAttribute('aria-label')).toBe('Défaite');
+      expect(badges[2].className).toContain('form-badge-loss');
+    });
+
+    it('renders INSUFFICIENT_DATA with exact mandated French text', () => {
+      const formEl = createFormBadges({
+        teamId: 't1',
+        availability: 'INSUFFICIENT_DATA',
+        results: [],
+      });
+
+      expect(formEl.querySelector('.form-insufficient')?.textContent).toBe('Données de forme indisponibles');
+    });
+
+    it('renders UNAVAILABLE state with neutral French text', () => {
+      const formEl = createFormBadges({
+        teamId: 't1',
+        availability: 'UNAVAILABLE',
+        results: [],
+      });
+
+      expect(formEl.querySelector('.form-unavailable')?.textContent).toBe('Forme temporairement indisponible');
+    });
+
+    it('renders analytical matches grid with home and away Form 5 badges without undefined or null text', () => {
+      const analyticalMatches = [
+        {
+          match: {
+            id: 'm1',
+            competitionId: 'FL1',
+            seasonId: '2025',
+            matchday: 1,
+            utcDate: '2026-08-15T20:00:00Z',
+            status: 'SCHEDULED',
+            homeTeam: { id: 't1', name: 'Alpha', shortName: 'Alpha', tla: 'ALF', crestUrl: null },
+            awayTeam: { id: 't2', name: 'Beta', shortName: 'Beta', tla: 'BTU', crestUrl: null },
+            score: { halfTime: { home: null, away: null }, fullTime: { home: null, away: null } },
+          },
+          form: {
+            home: { teamId: 't1', availability: 'AVAILABLE' as const, results: ['WIN' as const, 'WIN' as const] },
+            away: { teamId: 't2', availability: 'INSUFFICIENT_DATA' as const, results: [] },
+          },
+        },
+      ];
+
+      renderUI(container, announcer, { status: 'matches', data: analyticalMatches });
+
+      expect(container.textContent).not.toContain('undefined');
+      expect(container.textContent).not.toContain('[object Object]');
+      expect(container.textContent).toContain('Alpha');
+      expect(container.textContent).toContain('Beta');
+      expect(container.textContent).toContain('Données de forme indisponibles');
+      expect(container.querySelectorAll('.form-badge')).toHaveLength(2);
+    });
   });
 });

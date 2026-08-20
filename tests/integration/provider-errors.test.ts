@@ -71,4 +71,42 @@ describe('Integration — Provider Error Handling (DEC-006)', () => {
 
     expect(response.status).toBe(500);
   });
+
+  // E-3 — DEC-021 : ProviderRequestRejectedError sur GET /matches -> HTTP 503 PROVIDER_UNAVAILABLE
+  it('E-3 DEC-021: retourne HTTP 503 PROVIDER_UNAVAILABLE si le fournisseur lève ProviderRequestRejectedError sur /matches', async () => {
+    const { ProviderRequestRejectedError } = await import('../../src/application/errors/index.js');
+
+    // Provider mock qui lève ProviderRequestRejectedError avec diagnostic fictif
+    const rejectingProvider = {
+      getCompetitions: vi.fn(),
+      getMatches: vi.fn().mockRejectedValue(
+        new ProviderRequestRejectedError(
+          'Requête rejetée par football-data.org (HTTP 400)',
+          {
+            upstreamStatus: 400,
+            providerMessage: 'date filter not supported',
+            providerCode: 'ERR_DATE_FILTER',
+          }
+        )
+      ),
+      getMatchDetails: vi.fn(),
+    };
+
+    const app = createApp(rejectingProvider);
+
+    const response = await request(app).get('/competitions/FL1/matches');
+
+    // Statut public inchangé : 503
+    expect(response.status).toBe(503);
+    // Corps public exact (aucun diagnostic upstream exposé)
+    expect(response.body).toEqual({ error: 'PROVIDER_UNAVAILABLE' });
+    // Garantie d'absence de fuite dans la réponse HTTP
+    const bodyStr = JSON.stringify(response.body);
+    expect(bodyStr).not.toContain('date filter not supported');
+    expect(bodyStr).not.toContain('ERR_DATE_FILTER');
+    expect(bodyStr).not.toContain('400');
+    expect(bodyStr).not.toContain('providerMessage');
+    expect(bodyStr).not.toContain('providerCode');
+    expect(bodyStr).not.toContain('upstreamStatus');
+  });
 });

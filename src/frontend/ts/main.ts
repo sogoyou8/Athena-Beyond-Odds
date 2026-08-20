@@ -2,12 +2,12 @@
  * Orchestration principale Frontend — Athena Phase 3.1
  */
 
-import { checkHealth, fetchScheduledMatches } from './api-client.js';
+import { checkHealth, fetchScheduledMatches, fetchAnalyticalMatches } from './api-client.js';
 import { renderUI, ClientState } from './render.js';
 
 export interface AppDependencies {
   checkHealthImpl?: typeof checkHealth;
-  fetchMatchesImpl?: typeof fetchScheduledMatches;
+  fetchMatchesImpl?: typeof fetchAnalyticalMatches | typeof fetchScheduledMatches;
 }
 
 export class AthenaApp {
@@ -15,7 +15,7 @@ export class AthenaApp {
   private announcer: HTMLElement | null;
   private themeToggleBtn: HTMLButtonElement | null;
   private checkHealthFn: typeof checkHealth;
-  private fetchMatchesFn: typeof fetchScheduledMatches;
+  private fetchMatchesFn: typeof fetchAnalyticalMatches | typeof fetchScheduledMatches;
   private state: ClientState = { status: 'initial' };
 
   constructor(
@@ -28,7 +28,7 @@ export class AthenaApp {
     this.announcer = announcer;
     this.themeToggleBtn = themeToggleBtn;
     this.checkHealthFn = deps.checkHealthImpl ?? checkHealth;
-    this.fetchMatchesFn = deps.fetchMatchesImpl ?? fetchScheduledMatches;
+    this.fetchMatchesFn = deps.fetchMatchesImpl ?? fetchAnalyticalMatches;
   }
 
   public init(): void {

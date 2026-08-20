@@ -5,12 +5,12 @@
  * Interdiction absolue de toute primitive d'injection HTML brute.
  */
 
-import { MatchDTO } from './api-client.js';
+import { MatchDTO, AnalyticalMatchEntryDTO, TeamFormDTO } from './api-client.js';
 
 export type ClientState =
   | { status: 'initial' }
   | { status: 'loading' }
-  | { status: 'matches'; data: MatchDTO[] }
+  | { status: 'matches'; data: MatchDTO[] | AnalyticalMatchEntryDTO[] }
   | { status: 'empty' }
   | { status: 'competitionUnavailable' }
   | { status: 'rateLimited' }
@@ -62,8 +62,8 @@ export function renderUI(
       const grid = document.createElement('div');
       grid.className = 'match-grid';
 
-      for (const match of state.data) {
-        const card = createMatchCard(match);
+      for (const item of state.data) {
+        const card = 'match' in item ? createAnalyticalMatchCard(item) : createMatchCard(item);
         grid.append(card);
       }
 
@@ -169,6 +169,61 @@ function createErrorStateBox(titleText: string, messageText: string, onRetry?: (
   return box;
 }
 
+export function createFormBadges(teamForm: TeamFormDTO): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'form-container';
+
+  if (teamForm.availability === 'INSUFFICIENT_DATA') {
+    const span = document.createElement('span');
+    span.className = 'form-insufficient';
+    span.textContent = 'Données de forme indisponibles';
+    container.append(span);
+    return container;
+  }
+
+  if (teamForm.availability === 'UNAVAILABLE') {
+    const span = document.createElement('span');
+    span.className = 'form-unavailable';
+    span.textContent = 'Forme temporairement indisponible';
+    container.append(span);
+    return container;
+  }
+
+  const list = document.createElement('ul');
+  list.className = 'form-list';
+  list.setAttribute('aria-label', 'Forme récente');
+
+  for (const res of teamForm.results) {
+    const item = document.createElement('li');
+    const badge = document.createElement('span');
+
+    let letter = 'N';
+    let fullText = 'Nul';
+    let cssClass = 'form-badge-draw';
+
+    if (res === 'WIN') {
+      letter = 'V';
+      fullText = 'Victoire';
+      cssClass = 'form-badge-win';
+    } else if (res === 'LOSS') {
+      letter = 'D';
+      fullText = 'Défaite';
+      cssClass = 'form-badge-loss';
+    }
+
+    badge.className = `form-badge ${cssClass}`;
+    badge.textContent = letter;
+    badge.setAttribute('title', fullText);
+    badge.setAttribute('aria-label', fullText);
+
+    item.append(badge);
+    list.append(item);
+  }
+
+  container.append(list);
+  return container;
+}
+
 function createMatchCard(match: MatchDTO): HTMLElement {
   const card = document.createElement('article');
   card.className = 'match-card';
@@ -222,5 +277,26 @@ function createMatchCard(match: MatchDTO): HTMLElement {
   badge.textContent = match.status;
 
   card.append(meta, teams, badge);
+  return card;
+}
+
+function createAnalyticalMatchCard(entry: AnalyticalMatchEntryDTO): HTMLElement {
+  const card = createMatchCard(entry.match);
+
+  const homeFormEl = createFormBadges(entry.form.home);
+  homeFormEl.classList.add('home-form');
+
+  const awayFormEl = createFormBadges(entry.form.away);
+  awayFormEl.classList.add('away-form');
+
+  const teamsEl = card.querySelector('.match-teams');
+  if (teamsEl) {
+    const rows = teamsEl.querySelectorAll('.team-row');
+    if (rows.length >= 2) {
+      rows[0].append(homeFormEl);
+      rows[1].append(awayFormEl);
+    }
+  }
+
   return card;
 }

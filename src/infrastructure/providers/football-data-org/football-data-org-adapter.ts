@@ -4,23 +4,27 @@
  *
  * Implémentation Phase 2.8 — Connexion réelle à l'API football-data.org v4.
  *
- * Principes et garde-fous (DEC-006) :
+ * Principes et garde-fous (DEC-006 / DEC-019 / DEC-020) :
  * 1. Utilise globalThis.fetch natif sans dépendance npm. Transport HTTP injectable.
  * 2. Authentification via en-tête X-Auth-Token. Aucun token dans les logs ou les URL.
  * 3. Clé API transmise via le constructeur.
- * 4. Fenêtre temporelle [dateFrom, dateFrom + 7 jours) UTC (dateTo exclusive). Horloge injectable.
- * 5. Filtre final pour conserver uniquement les matchs au statut SCHEDULED.
+ * 4. Sémantique temporelle (DEC-020) :
+ *    - Sans dates : demande la saison courante sans fabriquer de query params artificiels.
+ *    - Avec dates : transmet les bornes UTC demandées.
+ * 5. Le provider normalise TOUS les matchs retournés (SCHEDULED, FINISHED, LIVE, etc.).
+ *    Le filtrage métier par statut est délégué à la couche Application (DEC-019.5).
  * 6. Délai maximal de 8 secondes par requête via AbortController.
  * 7. HTTP 429 -> ProviderRateLimitError (puis HTTP 429).
  * 8. Erreurs réseau, timeout, HTTP 401, 403, 5xx, JSON invalide, mapping incompatible -> ProviderUnavailableError (puis HTTP 503).
  *
- * Références : phase-2-8-real-provider-validation-pack.md (DEC-006)
+ * Références : phase-2-8-real-provider-validation-pack.md (DEC-006) / DEC-019 / DEC-020
  */
 
 import { SportsDataProvider } from '../../../application/ports/sports-data-provider.js';
 import {
   NotImplementedError,
   ProviderRateLimitError,
+  ProviderRequestRejectedError,
   ProviderUnavailableError,
 } from '../../../application/errors/index.js';
 import { Competition } from '../../../domain/entities/competition.js';
@@ -46,6 +50,94 @@ export type HttpFetchFn = (
 
 export type ClockFn = () => Date;
 export type DurationClockFn = () => number;
+
+/**
+ * Sanitise un texte candidat issu d'un body d'erreur provider (DEC-021).
+ *
+ * - Accepte uniquement des primitives ; rejette les objets et tableaux.
+ * - Redacte toute occurrence exacte des secrets fournis (AVANT troncature).
+ * - Supprime les caractères de contrôle (0x00-0x1F, 0x7F) sauf espace (0x20).
+ * - Tronque à `maxLength` caractères maximum.
+ * - Retourne undefined si le résultat est vide.
+ *
+ * IMPORTANT : la redaction se produit AVANT la troncature pour éviter qu'un
+ * fragment de secret ne soit conservé à la frontière des N caractères.
+ *
+ * Ne reçoit jamais de token, d'en-tête ou de variable d'environnement comme
+ * donnée de sortie ; les secrets ne sont utilisés que comme motif de recherche.
+ */
+export function sanitizeProviderText(
+  raw: unknown,
+  maxLength: number = 256,
+  secretsToRedact?: readonly string[]
+): string | undefined {
+  if (
+    raw === null ||
+    raw === undefined ||
+    typeof raw === 'object' ||
+    typeof raw === 'function'
+  ) {
+    return undefined;
+  }
+  let str = String(raw)
+    // Supprime les caractères de contrôle (incl. \r\n\t) sauf espace
+    .replace(/[\x00-\x1F\x7F]+/g, ' ')
+    .trim();
+  // Redaction des secrets AVANT la troncature (DEC-021.7)
+  if (secretsToRedact) {
+    for (const secret of secretsToRedact) {
+      // Protéger contre une chaîne vide qui remplacerait chaque position
+      if (!secret || secret.length === 0) {
+        continue;
+      }
+      // Remplacer toutes les occurrences littérales exactes
+      str = str.split(secret).join('[REDACTED]');
+    }
+  }
+  if (str.length === 0) {
+    return undefined;
+  }
+  return str.length > maxLength ? str.slice(0, maxLength) : str;
+}
+
+/**
+ * Extrait un diagnostic sanitisé depuis le body JSON d'une réponse HTTP 400 (DEC-021).
+ *
+ * - Lit le body UNE seule fois.
+ * - Inspecte uniquement les champs de la whitelist dans l'ordre : message > error > errorCode > code.
+ * - Redacte toute occurrence de `apiKey` dans le diagnostic AVANT la troncature.
+ * - Ne stocke pas le raw body.
+ * - En cas d'échec de parsing JSON, retourne un diagnostic générique.
+ * - N'injecte jamais token, headers ou variables d'environnement en sortie.
+ */
+export async function extractRejectionDiagnostic(
+  response: Response,
+  apiKey?: string
+): Promise<{
+  providerMessage: string | undefined;
+  providerCode: string | undefined;
+}> {
+  // Construction de la liste de secrets à redacter (jamais exposée en sortie)
+  const secrets: readonly string[] =
+    apiKey && apiKey.length > 0 ? [apiKey] : [];
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const body: any = await response.json();
+    // Whitelist strictément limitée (DEC-021.4) — redaction appliquée avant troncature
+    const message = sanitizeProviderText(body?.message, 256, secrets);
+    const error = sanitizeProviderText(body?.error, 256, secrets);
+    const errorCode = sanitizeProviderText(body?.errorCode, 64, secrets);
+    const code = sanitizeProviderText(body?.code, 64, secrets);
+    // Le raw body est abandonné immédiatement après cette extraction
+    return {
+      providerMessage: message ?? error ?? undefined,
+      providerCode: errorCode ?? code ?? undefined,
+    };
+  } catch {
+    // Parsing échoué : diagnostic générique, aucun raw texte conservé
+    return { providerMessage: undefined, providerCode: undefined };
+  }
+}
 
 export interface FootballDataOrgAdapterOptions {
   apiKey?: string;
@@ -120,29 +212,36 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
     throw new NotImplementedError('FootballDataOrgAdapter.getCompetitions');
   }
 
+  /**
+   * Récupère les matchs d'une compétition.
+   * Conforme à DEC-020 :
+   * - Sans dates : récupère les matchs de la saison courante sans fabriquer de query params artificiels.
+   * - Avec dates : transmet les bornes UTC demandées.
+   */
   async getMatches(
     competitionCode: string,
     fromDate?: Date,
     toDate?: Date
   ): Promise<Match[]> {
-    let dateFromStr: string;
-    let dateToStr: string;
+    let queryParams = '';
+    let dateFromStr = '';
+    let dateToStr = '';
 
     if (fromDate !== undefined && toDate !== undefined) {
-      // Both explicit bounds provided — use them as-is (DEC-008.3 / Option A).
       dateFromStr = formatUtcDate(fromDate);
       dateToStr = formatUtcDate(toDate);
-    } else {
-      // Default: rolling 7-day UTC window starting from now.
-      const now = this.clockFn();
-      dateFromStr = formatUtcDate(now);
-      const endDate = addUtcDays(now, 7);
-      dateToStr = formatUtcDate(endDate);
+      queryParams = `?dateFrom=${dateFromStr}&dateTo=${dateToStr}`;
+    } else if (fromDate !== undefined) {
+      dateFromStr = formatUtcDate(fromDate);
+      queryParams = `?dateFrom=${dateFromStr}`;
+    } else if (toDate !== undefined) {
+      dateToStr = formatUtcDate(toDate);
+      queryParams = `?dateTo=${dateToStr}`;
     }
 
     const url = `${this.baseUrl}/competitions/${encodeURIComponent(
       competitionCode
-    )}/matches?dateFrom=${dateFromStr}&dateTo=${dateToStr}`;
+    )}/matches${queryParams}`;
 
     safeObserve(this.observer, {
       type: 'provider_request_started',
@@ -247,6 +346,26 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
       );
     }
 
+    if (response.status === 400) {
+      const durationMs = getDurationMs();
+      // Lecture unique du body d'erreur pour extraction diagnostique sécurisée (DEC-021)
+      // this.apiKey est passé uniquement comme motif de redaction interne — jamais loggé/stocké
+      const { providerMessage, providerCode } = await extractRejectionDiagnostic(response, this.apiKey);
+      // Le raw body est abandonné ici ; seuls les champs sanitisés et redactés sont conservés.
+      safeObserve(this.observer, {
+        type: 'provider_request_rejected',
+        competitionCode,
+        durationMs,
+        upstreamStatus: 400,
+        providerCode,
+        providerMessage,
+      });
+      throw new ProviderRequestRejectedError(
+        'Requête rejetée par football-data.org (HTTP 400)',
+        { upstreamStatus: 400, providerMessage, providerCode }
+      );
+    }
+
     if (!response.ok) {
       const durationMs = getDurationMs();
       const failureKind: ProviderFailureKind =
@@ -336,9 +455,6 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
       }
 
       const mappedStatus = this.mapStatus(raw.status);
-      if (mappedStatus !== 'SCHEDULED') {
-        continue;
-      }
 
       if (
         !raw.id ||
@@ -401,7 +517,7 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
         seasonId: `season-${matchDate.getUTCFullYear()}`,
         matchday: raw.matchday ?? 1,
         utcDate: matchDate,
-        status: 'SCHEDULED',
+        status: mappedStatus,
         homeTeam,
         awayTeam,
         score,

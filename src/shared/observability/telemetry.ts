@@ -21,6 +21,7 @@ export type ProviderFailureKind =
   | 'forbidden'
   | 'upstream_5xx'
   | 'invalid_response'
+  | 'request_rejected'
   | 'unknown';
 
 export type TelemetryEvent =
@@ -78,6 +79,19 @@ export type TelemetryEvent =
       competitionCode: string;
       durationMs: number;
       failureKind: ProviderFailureKind;
+    }
+  | {
+      /**
+       * Émis quand le fournisseur rejette la requête avec HTTP 400 (DEC-021).
+       * Ne contient jamais de token, headers ou raw body.
+       * providerCode et providerMessage sont toujours sanitisés et bornés.
+       */
+      type: 'provider_request_rejected';
+      competitionCode: string;
+      durationMs: number;
+      upstreamStatus: number;
+      providerCode: string | undefined;
+      providerMessage: string | undefined;
     };
 
 export type TelemetryObserver = (event: TelemetryEvent) => void;
@@ -122,7 +136,8 @@ export function createConsoleTelemetryObserver(
 
     if (
       event.type === 'provider_rate_limited' ||
-      event.type === 'provider_unavailable'
+      event.type === 'provider_unavailable' ||
+      event.type === 'provider_request_rejected'
     ) {
       target.error(payload);
     } else {

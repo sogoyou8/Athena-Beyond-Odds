@@ -26,27 +26,31 @@ describe('Provider Selection & Startup Validation (DEC-006)', () => {
     delete process.env['SPORTS_DATA_PROVIDER'];
     delete process.env['FOOTBALL_DATA_API_KEY'];
 
-    const provider = resolveSportsDataProvider();
-    expect(provider).toBeInstanceOf(InMemorySportsDataProvider);
+    const result = resolveSportsDataProvider();
+    expect(result.provider).toBeInstanceOf(InMemorySportsDataProvider);
+    expect(result.clockFn).toBeDefined();
   });
 
   it('2. SPORTS_DATA_PROVIDER=in-memory sélectionne InMemorySportsDataProvider sans clé', () => {
     process.env['SPORTS_DATA_PROVIDER'] = 'in-memory';
     delete process.env['FOOTBALL_DATA_API_KEY'];
 
-    const provider = resolveSportsDataProvider();
-    expect(provider).toBeInstanceOf(InMemorySportsDataProvider);
+    const result = resolveSportsDataProvider();
+    expect(result.provider).toBeInstanceOf(InMemorySportsDataProvider);
+    expect(result.clockFn).toBeDefined();
   });
 
   it('3. SPORTS_DATA_PROVIDER=football-data-org avec une clé valide sélectionne InMemoryCache(FootballDataOrgAdapter) (DEC-008.1)', () => {
     process.env['SPORTS_DATA_PROVIDER'] = 'football-data-org';
     process.env['FOOTBALL_DATA_API_KEY'] = 'TEST_KEY_NEVER_SENT';
 
-    const provider = resolveSportsDataProvider();
+    const result = resolveSportsDataProvider();
     // Phase 2.10 : InMemoryCache enveloppe FootballDataOrgAdapter
-    expect(provider).toBeInstanceOf(InMemoryCache);
+    expect(result.provider).toBeInstanceOf(InMemoryCache);
     // FootballDataOrgAdapter seul n'est plus retourné directement
-    expect(provider).not.toBeInstanceOf(FootballDataOrgAdapter);
+    expect(result.provider).not.toBeInstanceOf(FootballDataOrgAdapter);
+    // Mode réel : clockFn undefined (horloge système réelle)
+    expect(result.clockFn).toBeUndefined();
   });
 
   it('4. La création de l\'application en mode réel n\'effectue aucun appel réseau', () => {
