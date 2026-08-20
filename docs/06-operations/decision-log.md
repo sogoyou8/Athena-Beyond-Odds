@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.0
+> **Version :** 2.1
 
 # Decision Log
 
@@ -1009,3 +1009,25 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 13. **DEC-021.13 — Gel de PR #26 :** La PR `#26` reste gelée sur son commit `bd32012e09ee8338c2ba80d2445dc0e9180b1c1b` tant que DEC-021 n'est pas fusionnée et auditée.
 14. **DEC-021.14 — Autorisation conditionnelle du correctif technique :** LE CORRECTIF TECHNIQUE DEC-021 SUR PR #26 EST AUTORISÉ UNIQUEMENT APRÈS FUSION CONFORME DE DEC-021 ET AUDIT POST-FUSION POSITIF.
 15. **DEC-021.15 — Condition de nouvelle validation réseau :** Une nouvelle tentative réseau Phase 2.9 Niveau 2 ne sera autorisée par le Fondateur qu'après fusion de DEC-021, implémentation du cinquième commit sur PR #26, audit technique positif et validation des tests déterministes.
+
+---
+
+## DEC-022 — Phase 3.2 — Clôture du Match Center analytique initial / Form 5
+
+- **Date :** 2026-08-20
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Document de référence :** `docs/03-technical-architecture/phase-3-2-match-center-form-5-closure.md`
+
+### Résumé des arbitrages et constats DEC-022
+
+1. **DEC-022.1 — Clôture officielle de la Phase 3.2 :** La Phase 3.2 (Match Center analytique initial / Form 5) est officiellement déclarée clôturée. Form 5 est entièrement implémentée, testée, documentée, fusionnée et auditée.
+2. **DEC-022.2 — Fusion conforme de la PR #26 :** La PR technique `#26` est fusionnée sur `architecture/phase-2-technical-design` via merge commit `c3986c6e25f567ce6bf7b4c6882f25db270f5190` avec 2 parents réels. La branche source `implementation/phase-3-2-form-5` est conservée pour traçabilité.
+3. **DEC-022.3 — Validation technique automatisée :** La base post-fusion valide l'ensemble des 239 tests Vitest (20 fichiers, 0 échec, 0 désactivé), le typecheck serveur/client et le build de production `dist/`.
+4. **DEC-022.4 — Validation manuelle Chromium :** Le rendu Form 5 (pastilles V/N/D, libellés d'indisponibilité, accessibilité ARIA, responsive desktop/mobile, thèmes) est validé sur dataset déterministe.
+5. **DEC-022.5 — Respect des décisions DEC-020 et DEC-021 :** La sémantique temporelle du port provider, l'architecture anti N+1 ($O(1)$ appels), la dégradation gracieuse M-002, la classification d'erreur HTTP 400 et la sanitisation/redaction anti-fuite des diagnostics sont opérationnelles et conformes.
+6. **DEC-022.6 — Connectivité réelle provider validée :** L'accès réseau réel `football-data.org` est validé (`PROVIDER_REAL_ACCESS=PASS`, `FL1_REQUEST_ACCEPTED=PASS`) avec la réception d'un statut upstream `HTTP 200` sur la requête observée `GET /v4/competitions/FL1/matches?dateFrom=2026-08-20&dateTo=2026-08-27` (1 fetch unique, 0 retry, 0 erreur réseau).
+7. **DEC-022.7 — Réserve de preuve E2E :** En raison de la non-conservation de la valeur locale `ANALYSIS_HTTP` lors de la tentative réelle 200, la limitation méthodologique `LOCAL_E2E_EVIDENCE=INCOMPLETE_NON_BLOCKING` est formellement consignée. Aucune affirmation `ANALYSIS_LOCAL_HTTP_200=PASS` n'est formulée sans preuve archivée. Cette limitation ne bloque pas la clôture.
+8. **DEC-022.8 — Cause du HTTP 400 historique :** La cause de l'erreur 400 observée lors de la tentative initiale reste enregistrée comme `UNKNOWN`. Le succès ultérieur en HTTP 200 sur la même URL confirme l'absence de défaut structurel de requête dans Athena.
+9. **DEC-022.9 — Aucun nouvel appel réseau requis :** Aucun appel réel supplémentaire n'est autorisé ni nécessaire.
+10. **DEC-022.10 — Prochaine brique analytique :** Le choix de la brique analytique suivante (Phase 3.3+) fera l'objet d'un arbitrage distinct par le Fondateur.
