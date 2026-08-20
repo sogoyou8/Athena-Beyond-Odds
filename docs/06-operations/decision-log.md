@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.15
+> **Version :** 2.16
 
 # Decision Log
 
@@ -1339,3 +1339,30 @@ La version 2.13 du Decision Log (commit direct `9fc1b03` sur la branche principa
 8. **DEC-035.8 — Intentions d'architecture et budgets (OQ-105 à OQ-110, OQ-123) :** Intention de réutiliser le flux historique partagé et l'index `historyByTeam` sans modifier `SportsDataProvider` ni `HistoryFilter`. Budgets cibles : $\le 2$ appels Application, $\le 5$ requêtes HTTP hard max, $O(1)$ sans N+1. Mémoïsation locale request-scoped autorisée avec clé sensible au cutoff (`teamId + targetMatch.utcDate`).
 9. **DEC-035.9 — Frontend et intégration visuelle (OQ-111 à OQ-116) :** Bloc « Adversaires récents » placé après « Dynamique récente », formatage à 2 décimales, présentation neutre. Dégradation locale propre vers `UNAVAILABLE` en cas d'erreur flux. 9 états globaux inchangés.
 10. **DEC-035.10 — Périmètres exclus et suites (OQ-117 à OQ-120) :** Football v1 uniquement. Travel, Power Rating, marchés de paris et cotes exclus. Réalisation obligatoire d'un **Gate A de faisabilité technique Phase 3.7** après fusion de DEC-035 avant toute conception technique (DEC-036).
+
+---
+
+## DEC-036 — Phase 3.7 — Conception technique Opponent Context
+
+- **Date :** 2026-08-21
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Documents de référence :**
+  - `docs/03-technical-architecture/phase-3-7-opponent-context-technical-design.md`
+  - `docs/03-technical-architecture/phase-3-7-opponent-context-framing.md` (DEC-035)
+  - Résultats validés du Gate A technique du 2026-08-21
+
+### Résumé des arbitrages et de la conception technique DEC-036
+
+1. **DEC-036.1 — Résultats Gate A et faisabilité prouvée :** Le Gate A a validé que le corpus historique mutualisé est `COMPETITION_WIDE` et que `historyByTeam` indexe chaque match sous les deux équipes. Les profils adversaires au cutoff sont calculables localement à 100% avec 0 appel provider et 0 requête HTTP supplémentaire.
+2. **DEC-036.2 — Service Domaine dédié et pur (`OpponentContextCalculator`) :** Rejet explicite de la réutilisation directe de `SeasonStrengthCalculator` (incompatibilité sémantique de l'interface et métriques superflues). Création d'un calculateur pur, synchrone, déterministe, zéro I/O, sans `Date.now()`, recevant `ReadonlyMap<string, readonly Match[]>`.
+3. **DEC-036.3 — Sélection et identification des adversaires récents :** Filtrage $\le 5$ matchs récents éligibles (`FINISHED`, score complet, saison cible, `utcDate < targetMatch.utcDate`), tri déterministe `utcDate DESC` puis `Match.id DESC`. Dérivation stricte de l'adversaire et de son `opponentVenue` (`HOME`/`AWAY`) par comparaison d'identifiants.
+4. **DEC-036.4 — Construction des entries et inclusion de la rencontre récente :** 1 entry par rencontre récente ($\le 5$ entries, aucune déduplication de la liste). La rencontre récente est légitimement incluse dans le profil de l'adversaire (information $\le$ cutoff du targetMatch), garantissant mathématiquement $\text{sampleSize} \ge 1$ sur le profil overall et sur le profil contextuel pour toute entry valide.
+5. **DEC-036.5 — Sémantique des doublons et seuil de disponibilité :**
+   - **Seuil `AVAILABLE` :** Basé sur le nombre d'adversaires **DISTINCTS** évaluables (`evaluatedOpponentSampleSize = Set(opponentTeamId).size`). Seuil fixé à $\ge 3$ adversaires distincts pour `AVAILABLE`, sinon `INSUFFICIENT_DATA`.
+   - **Agrégats (`MATCH_ENTRY_WEIGHTING`) :** Les moyennes globales et contextuelles sont pondérées par rencontre récente (si une équipe a été affrontée 2 fois, son profil contribue 2 fois).
+6. **DEC-036.6 — Sémantique des zéros et états :** Absence totale d'arrondi dans le domaine. `0.00` est une valeur mathématique valide (vrai zéro). En état `INSUFFICIENT_DATA`, les 4 agrégats `average*` sont `null` (aucun faux zéro). En état `UNAVAILABLE` (échec historique), les sample sizes et agrégats sont `null` et `opponents = []`.
+7. **DEC-036.7 — Performance & Mémoïsation :** Complexité réseau $O(1)$ (0 appel N+1). Complexité CPU $O(H + 10 \cdot S \cdot K)$ avec `TEAM_HISTORY_DEPTH_BOUND = BOUNDED_BY_SELECTED_SEASONS` (aucun invariant numérique fixe). Mémoïsation non requise en v1 (`REQUEST_SCOPED_MEMOIZATION_REQUIRED = NO`) ; si implémentée ultérieurement, obligation stricte d'une portée request-scoped et d'une clé sensible au cutoff (`teamId + seasonId + cutoffMs + venueOrOverall`).
+8. **DEC-036.8 — Intégration Application & Dégradation gracieuse :** `ListAnalyticalMatchesUseCase` enrichit `AnalyticalMatchEntry` d'un champ `opponentContext` (home et away). En cas d'échec du flux historique, dégradation gracieuse locale vers `UNAVAILABLE` avec maintien du code HTTP 200 et du service des matchs programmés.
+9. **DEC-036.9 — Frontend et intégration visuelle :** Bloc « Adversaires récents » placé immédiatement après « Dynamique récente » (Momentum). Rendu factuel et neutre avec 2 décimales, gestion des vrais zéros, mentions `Données insuffisantes` et `Indisponible`. Interdiction absolue de scores de difficulté, badges qualificatifs ou colorisations subjectives. Maintien strict des 9 états globaux frontend.
+10. **DEC-036.10 — Périmètre de tests et budget fichiers :** Budget prévisionnel de 8 à 10 fichiers (2 value objects/services neufs, 1 use case modifié, 2 fichiers frontend modifiés, 3 suites de tests unitaires/intégration/frontend). Fixtures InMemory existantes jugées suffisantes sans modification. Validation humaine sous Chromium obligatoire après implémentation.
