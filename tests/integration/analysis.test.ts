@@ -373,7 +373,7 @@ describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-0
       .get('/competitions/FL1/matches/analysis')
       .expect(200);
 
-    // M-002: matches conservés, form et seasonStrength UNAVAILABLE
+    // M-002: matches conservés, form, seasonStrength, H2H et scheduleLoad UNAVAILABLE
     expect(res.body.matches).toHaveLength(3);
     for (const entry of res.body.matches) {
       expect(entry.form.home.availability).toBe('UNAVAILABLE');
@@ -383,9 +383,46 @@ describe('GET /competitions/FL1/matches/analysis (Form 5 & Season Strength DEC-0
       // DEC-027: H2H également UNAVAILABLE
       expect(entry.headToHead.overall.availability).toBe('UNAVAILABLE');
       expect(entry.headToHead.contextual.segment.availability).toBe('UNAVAILABLE');
+      // DEC-030: Schedule Load également UNAVAILABLE
+      expect(entry.scheduleLoad.home.availability).toBe('UNAVAILABLE');
+      expect(entry.scheduleLoad.away.availability).toBe('UNAVAILABLE');
+      expect(entry.scheduleLoad.home.daysSinceLastMatch).toBeNull();
+      expect(entry.scheduleLoad.away.daysSinceLastMatch).toBeNull();
     }
     // Aucun diagnostic upstream exposé dans la réponse
     expect(JSON.stringify(res.body)).not.toContain('season boundary exceeded');
     expect(JSON.stringify(res.body)).not.toContain('providerMessage');
+  });
+
+  it('DEC-030: returns scheduleLoad structure for home and away teams on /analysis', async () => {
+    const res = await request(app)
+      .get('/competitions/FL1/matches/analysis')
+      .expect(200);
+
+    const first = res.body.matches[0];
+    expect(first).toHaveProperty('scheduleLoad');
+    expect(first.scheduleLoad).toHaveProperty('home');
+    expect(first.scheduleLoad).toHaveProperty('away');
+
+    // Home: Alpha (targetMatch: 2099-08-14, dernier hist-101 le 2099-08-10 -> 4 jours)
+    expect(first.scheduleLoad.home.availability).toBe('AVAILABLE');
+    expect(first.scheduleLoad.home.daysSinceLastMatch).toBe(4);
+    expect(first.scheduleLoad.home.shortRest).toBe(false); // 4 > 3
+    expect(first.scheduleLoad.home.matchesLast7Days).toBe(2); // 2099-08-10, 2099-08-07
+    expect(first.scheduleLoad.home.matchesLast14Days).toBe(4); // 2099-08-10, 2099-08-07, 2099-08-03, 2099-07-31
+    expect(first.scheduleLoad.home.matchesLast28Days).toBe(7); // + 2099-07-28 (x2), 2099-07-21, 2099-07-14
+    expect(first.scheduleLoad.home.minimumRestDaysInLast14Days).toBe(2); // 2099-08-07 -> 2099-08-10 = 2j complets de 24h (68h)
+
+    // Match 3 : Epsilon vs Zeta
+    // Epsilon a 1 match (2099-08-06 -> target 2099-08-16 -> 10 jours)
+    // Zeta n'a aucun match historique -> INSUFFICIENT_DATA
+    const third = res.body.matches[2];
+    expect(third.scheduleLoad.away.availability).toBe('INSUFFICIENT_DATA');
+    expect(third.scheduleLoad.away.daysSinceLastMatch).toBeNull();
+    expect(third.scheduleLoad.away.matchesLast7Days).toBeNull();
+    expect(third.scheduleLoad.away.matchesLast14Days).toBeNull();
+    expect(third.scheduleLoad.away.matchesLast28Days).toBeNull();
+    expect(third.scheduleLoad.away.minimumRestDaysInLast14Days).toBeNull();
+    expect(third.scheduleLoad.away.shortRest).toBeNull();
   });
 });
