@@ -121,4 +121,12 @@ describe('AthenaApp Main Orchestration Unit Tests (happy-dom)', () => {
     expect(mockFetchMatches).toHaveBeenCalledTimes(2);
     expect(app.getState()).toEqual({ status: 'empty' });
   });
+
+  it('affiche la mention Prototype Phase 3.3 dans le footer du document statique', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const htmlContent = readFileSync(join(process.cwd(), 'src/frontend/public/index.html'), 'utf-8');
+    expect(htmlContent).toContain('Athena: Beyond Odds — Prototype Phase 3.3');
+    expect(htmlContent).not.toContain('Prototype Phase 3.1');
+  });
 });
