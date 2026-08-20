@@ -137,6 +137,25 @@ export interface ScheduleLoadProfileDTO {
   shortRest: boolean | null;
 }
 
+export type MomentumAvailabilityDTO = 'AVAILABLE' | 'INSUFFICIENT_DATA' | 'UNAVAILABLE';
+
+export interface MomentumWindowDTO {
+  sampleSize: number;
+  pointsPerMatch: number;
+  goalsForPerMatch: number;
+  goalsAgainstPerMatch: number;
+  goalDifferencePerMatch: number;
+}
+
+export interface MomentumProfileDTO {
+  availability: MomentumAvailabilityDTO;
+  windowSize: number | null;
+  recent: MomentumWindowDTO | null;
+  previous: MomentumWindowDTO | null;
+  pointsPerMatchDelta: number | null;
+  goalDifferencePerMatchDelta: number | null;
+}
+
 export interface AnalyticalMatchEntryDTO {
   match: MatchDTO;
   form: {
@@ -151,6 +170,10 @@ export interface AnalyticalMatchEntryDTO {
   scheduleLoad?: {
     home: ScheduleLoadProfileDTO;
     away: ScheduleLoadProfileDTO;
+  };
+  momentum?: {
+    home: MomentumProfileDTO;
+    away: MomentumProfileDTO;
   };
 }
 
