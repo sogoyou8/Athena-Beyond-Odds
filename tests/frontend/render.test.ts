@@ -7,8 +7,10 @@ import {
   createFormBadges,
   createSeasonStrengthElement,
   createScheduleLoadElement,
+  createMomentumElement,
+  createMomentumTeamElement,
 } from '../../src/frontend/ts/render.js';
-import { MatchDTO, AnalyticalMatchEntryDTO, SeasonStrengthProfileDTO } from '../../src/frontend/ts/api-client.js';
+import { MatchDTO, AnalyticalMatchEntryDTO, SeasonStrengthProfileDTO, MomentumProfileDTO } from '../../src/frontend/ts/api-client.js';
 
 describe('Render DOM Unit Tests (happy-dom)', () => {
   let container: HTMLElement;
@@ -399,6 +401,105 @@ describe('Render DOM Unit Tests (happy-dom)', () => {
       expect(el.textContent).not.toContain('undefined');
       expect(el.textContent).not.toContain('null');
       expect(el.textContent).not.toContain('NaN');
+    });
+  });
+
+  describe('DEC-033: createMomentumElement / createMomentumTeamElement', () => {
+    const buildAvailable = (): MomentumProfileDTO => ({
+      availability: 'AVAILABLE',
+      windowSize: 4,
+      recent: { sampleSize: 4, pointsPerMatch: 2.25, goalsForPerMatch: 1.75, goalsAgainstPerMatch: 0.5, goalDifferencePerMatch: 1.25 },
+      previous: { sampleSize: 4, pointsPerMatch: 1.5, goalsForPerMatch: 1.25, goalsAgainstPerMatch: 1.0, goalDifferencePerMatch: 0.25 },
+      pointsPerMatchDelta: 0.75,
+      goalDifferencePerMatchDelta: 1.0,
+    });
+
+    it('AVAILABLE: renders window, metrics and deltas without direction badge', () => {
+      const el = createMomentumTeamElement('Domicile', buildAvailable());
+      expect(el.textContent).toContain('4v4');
+      expect(el.textContent).toContain('2.25');  // recent Pts/match
+      expect(el.textContent).toContain('1.25');  // recent GD/match
+      expect(el.textContent).toContain('1.50');  // previous Pts/match
+      expect(el.textContent).toContain('0.25');  // previous GD/match
+      expect(el.textContent).toContain('+0.75'); // Δ Pts/match
+      expect(el.textContent).toContain('+1.00'); // Δ GD/match
+      // Neutralité visuelle : aucun badge directionnel
+      expect(el.textContent).not.toContain('UP');
+      expect(el.textContent).not.toContain('DOWN');
+      expect(el.textContent).not.toContain('EN HAUSSE');
+      expect(el.textContent).not.toContain('EN BAISSE');
+    });
+
+    it('UNAVAILABLE: renders "Indisponible" without any metric values', () => {
+      const profile: MomentumProfileDTO = {
+        availability: 'UNAVAILABLE',
+        windowSize: null,
+        recent: null,
+        previous: null,
+        pointsPerMatchDelta: null,
+        goalDifferencePerMatchDelta: null,
+      };
+      const el = createMomentumTeamElement('Extérieur', profile);
+      expect(el.textContent).toContain('Indisponible');
+      expect(el.textContent).not.toContain('undefined');
+      expect(el.textContent).not.toContain('null');
+      expect(el.textContent).not.toContain('NaN');
+    });
+
+    it('INSUFFICIENT_DATA: renders "Données insuffisantes" without any metric values', () => {
+      const profile: MomentumProfileDTO = {
+        availability: 'INSUFFICIENT_DATA',
+        windowSize: null,
+        recent: null,
+        previous: null,
+        pointsPerMatchDelta: null,
+        goalDifferencePerMatchDelta: null,
+      };
+      const el = createMomentumTeamElement('Domicile', profile);
+      expect(el.textContent).toContain('Données insuffisantes');
+      expect(el.textContent).not.toContain('undefined');
+      expect(el.textContent).not.toContain('null');
+      expect(el.textContent).not.toContain('0.00');
+    });
+
+    it('createMomentumElement: renders container with aria-label and both team sections', () => {
+      const momentum = {
+        home: buildAvailable(),
+        away: {
+          availability: 'INSUFFICIENT_DATA' as const,
+          windowSize: null,
+          recent: null,
+          previous: null,
+          pointsPerMatchDelta: null,
+          goalDifferencePerMatchDelta: null,
+        },
+      };
+      const el = createMomentumElement(momentum);
+      expect(el.getAttribute('aria-label')).toBe('Dynamique récente');
+      expect(el.textContent).toContain('Dynamique récente');
+      expect(el.textContent).toContain('Comparaison de fenêtres consécutives');
+      expect(el.textContent).toContain('Domicile');
+      expect(el.textContent).toContain('Extérieur');
+      // Home AVAILABLE
+      expect(el.textContent).toContain('4v4');
+      // Away INSUFFICIENT_DATA
+      expect(el.textContent).toContain('Données insuffisantes');
+    });
+
+    it('negative delta: renders minus sign without "+" prefix', () => {
+      const profile: MomentumProfileDTO = {
+        availability: 'AVAILABLE',
+        windowSize: 3,
+        recent: { sampleSize: 3, pointsPerMatch: 0.67, goalsForPerMatch: 0.67, goalsAgainstPerMatch: 1.33, goalDifferencePerMatch: -0.67 },
+        previous: { sampleSize: 3, pointsPerMatch: 2.0, goalsForPerMatch: 2.33, goalsAgainstPerMatch: 0.67, goalDifferencePerMatch: 1.67 },
+        pointsPerMatchDelta: -1.33,
+        goalDifferencePerMatchDelta: -2.33,
+      };
+      const el = createMomentumTeamElement('Extérieur', profile);
+      // Negative delta should not have a "+" prefix
+      expect(el.textContent).toContain('-1.33');
+      expect(el.textContent).toContain('-2.33');
+      expect(el.textContent).not.toContain('+-');
     });
   });
 });

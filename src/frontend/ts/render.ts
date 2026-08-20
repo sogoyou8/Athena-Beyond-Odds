@@ -15,6 +15,7 @@ import {
   SeasonStrengthSegmentDTO,
   HeadToHeadProfileDTO,
   HeadToHeadSegmentDTO,
+  MomentumProfileDTO,
 } from './api-client.js';
 
 export type ClientState =
@@ -581,6 +582,120 @@ export function createScheduleLoadElement(
   return container;
 }
 
+/**
+ * Crée le bloc UI "Momentum" pour une équipe (DEC-033 Phase 3.6).
+ */
+export function createMomentumTeamElement(
+  teamLabel: string,
+  profile: MomentumProfileDTO
+): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'momentum-team';
+
+  const labelEl = document.createElement('div');
+  labelEl.className = 'momentum-team-label';
+  labelEl.textContent = teamLabel;
+  el.append(labelEl);
+
+  if (profile.availability === 'UNAVAILABLE') {
+    const status = document.createElement('div');
+    status.className = 'momentum-status';
+    status.textContent = 'Indisponible';
+    el.append(status);
+    return el;
+  }
+
+  if (profile.availability === 'INSUFFICIENT_DATA') {
+    const status = document.createElement('div');
+    status.className = 'momentum-status';
+    status.textContent = 'Données insuffisantes';
+    el.append(status);
+    return el;
+  }
+
+  // AVAILABLE : métriques comparatives factuelles
+  const grid = document.createElement('div');
+  grid.className = 'momentum-grid';
+
+  const buildRow = (rowLabel: string, val: string) => {
+    const row = document.createElement('div');
+    row.className = 'momentum-row';
+    const l = document.createElement('span');
+    l.className = 'momentum-row-label';
+    l.textContent = rowLabel;
+    const v = document.createElement('span');
+    v.className = 'momentum-row-val';
+    v.textContent = val;
+    row.append(l, v);
+    return row;
+  };
+
+  const w = profile.windowSize ?? 0;
+  grid.append(buildRow('Fenêtre', `${w}v${w}`));
+
+  if (profile.recent) {
+    grid.append(buildRow(`Pts/match (${w} récents)`, formatRatio(profile.recent.pointsPerMatch)));
+    grid.append(buildRow(`GD/match (${w} récents)`, formatRatio(profile.recent.goalDifferencePerMatch)));
+  }
+  if (profile.previous) {
+    grid.append(buildRow(`Pts/match (${w} préc.)`, formatRatio(profile.previous.pointsPerMatch)));
+    grid.append(buildRow(`GD/match (${w} préc.)`, formatRatio(profile.previous.goalDifferencePerMatch)));
+  }
+  if (profile.pointsPerMatchDelta !== null) {
+    const deltaSign = profile.pointsPerMatchDelta > 0 ? '+' : '';
+    grid.append(buildRow('Δ Pts/match', `${deltaSign}${formatRatio(profile.pointsPerMatchDelta)}`));
+  }
+  if (profile.goalDifferencePerMatchDelta !== null) {
+    const deltaSign = profile.goalDifferencePerMatchDelta > 0 ? '+' : '';
+    grid.append(buildRow('Δ GD/match', `${deltaSign}${formatRatio(profile.goalDifferencePerMatchDelta)}`));
+  }
+
+  el.append(grid);
+  return el;
+}
+
+/**
+ * Crée le bloc UI "Momentum" pour la carte de match (DEC-033 Phase 3.6).
+ */
+export function createMomentumElement(
+  momentum: {
+    home: MomentumProfileDTO;
+    away: MomentumProfileDTO;
+  }
+): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'momentum-container';
+  container.setAttribute('aria-label', 'Dynamique récente');
+
+  const header = document.createElement('div');
+  header.className = 'momentum-header';
+
+  const title = document.createElement('div');
+  title.className = 'momentum-title';
+  title.textContent = 'Dynamique récente';
+
+  const notice = document.createElement('div');
+  notice.className = 'momentum-notice';
+  notice.textContent = 'Comparaison de fenêtres consécutives';
+
+  header.append(title, notice);
+  container.append(header);
+
+  const teamsContainer = document.createElement('div');
+  teamsContainer.className = 'momentum-teams';
+
+  const homeEl = createMomentumTeamElement('Domicile', momentum.home);
+  homeEl.classList.add('momentum-home');
+
+  const awayEl = createMomentumTeamElement('Extérieur', momentum.away);
+  awayEl.classList.add('momentum-away');
+
+  teamsContainer.append(homeEl, awayEl);
+  container.append(teamsContainer);
+
+  return container;
+}
+
 function createMatchCard(match: MatchDTO): HTMLElement {
   const card = document.createElement('article');
   card.className = 'match-card';
@@ -683,6 +798,12 @@ function createAnalyticalMatchCard(entry: AnalyticalMatchEntryDTO): HTMLElement 
   if (entry.scheduleLoad) {
     const scheduleLoadEl = createScheduleLoadElement(entry.scheduleLoad);
     card.append(scheduleLoadEl);
+  }
+
+  // Intégrer le bloc Momentum si présent (DEC-033 Phase 3.6)
+  if (entry.momentum) {
+    const momentumEl = createMomentumElement(entry.momentum);
+    card.append(momentumEl);
   }
 
   return card;
