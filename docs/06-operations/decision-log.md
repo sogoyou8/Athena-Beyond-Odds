@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.3
+> **Version :** 2.4
 
 # Decision Log
 
@@ -1078,3 +1078,25 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 4. **DEC-024.4 — Filtrage temporel strict :** Même compétition, même saison, matchs `FINISHED` avec score `fullTime` complet, et antériorité temporelle stricte (`match.utcDate < targetMatch.utcDate`, match cible strictement exclu).
 5. **DEC-024.5 — Port provider inchangé :** La signature et le contrat de `SportsDataProvider.getMatches(competitionCode, fromDate?, toDate?)` demeurent strictement inchangés (DEC-020).
 6. **DEC-024.6 — Dégradation gracieuse et robustesse (M-002 étendu) :** En cas d'échec du flux historique, l'endpoint `/analysis` répond `HTTP 200` avec les matchs programmés intacts, Form 5 `UNAVAILABLE` et Season Strength `UNAVAILABLE`. Aucun nouvel état global frontend.
+
+---
+
+## DEC-025 — Phase 3.3 — Clôture du profil de force saisonnier / Season Strength
+
+- **Date :** 2026-08-20
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Document de référence :** `docs/03-technical-architecture/phase-3-3-season-strength-closure.md`
+
+### Résumé des arbitrages et constats DEC-025
+
+1. **DEC-025.1 — Clôture officielle de la Phase 3.3 :** La Phase 3.3 (Profil de force saisonnier / Season Strength) est officiellement déclarée clôturée. L'ensemble des exigences DEC-023 et DEC-024 est implémenté, testé, validé sous Chromium, fusionné et audité post-fusion.
+2. **DEC-025.2 — Fusion conforme de la PR #32 :** La PR technique `#32` (`implementation/phase-3-3-season-strength`) est fusionnée sur `architecture/phase-2-technical-design` via merge commit `0cfcb82b6d795538b42ea25ea5e4e5010be3306b` (Parent 1 : `a7eea27...`, Parent 2 : `8558dea...`). La branche source est conservée pour traçabilité.
+3. **DEC-025.3 — Composant pur `SeasonStrengthCalculator` et contrat :** Service de domaine déterministe calculant 11 métriques exactes (`played`, `wins`, `draws`, `losses`, `points`, `pointsPerMatch`, `goalsFor`, `goalsAgainst`, `goalDifference`, `goalsForPerMatch`, `goalsAgainstPerMatch`) avec coupure stricte `utcDate < targetDate` et filtres stricts (current season, same competition, `FINISHED` only).
+4. **DEC-025.4 — Segments Global et Contextualisés :** Profil articulé en segment `overall` (Global) et segment `contextual` (`Domicile` pour l'équipe recevante, `Extérieur` pour l'équipe visiteuse). Ratios présentés à exactement 2 décimales côté interface utilisateur (`.toFixed(2)`).
+5. **DEC-025.5 — Données de référence et fallbacks validés :** Golden Data Alpha FC validées (Overall : MJ=8, V-N-D=3-2-3, Pts=11, GD=-2, PPG=1.38, GF/M=1.13, GA/M=1.38 ; Domicile : MJ=4, V-N-D=2-1-1, Pts=7, GD=+1, PPG=1.75, GF/M=1.25, GA/M=1.00). Cas Zeta Rovers `INSUFFICIENT_DATA` validé sans aucun faux zéro.
+6. **DEC-025.6 — Architecture Provider, Anti-N+1 et M-002 étendu :** Maximum de 2 appels provider par exécution de `/analysis` ($O(1)$ constant, aucun N+1, aucun 3e appel). Mutualisation du flux historique avec Form 5. Dégradation gracieuse en cas d'échec historique (2 tentatives, 1 succès, statut `UNAVAILABLE` local).
+7. **DEC-025.7 — Non-régression Form 5 et stabilité d'infrastructure :** `SportsDataProvider` et l'adaptateur `football-data.org` sont strictement inchangés (0 ligne modifiée). Form 5 reste intacte. Route `/matches` préservée. Maintien strict de 9 états globaux frontend (Season Strength 100% local à la carte).
+8. **DEC-025.8 — Validation Chromium humaine conforme :** Validation humaine documentée sous Google Chrome 151.0.7922.140 (desktop, mobile ~390px, thèmes clair et sombre, 0 erreur JS fatale, 0 appel `football-data.org`, aucun polling, aucun retry automatique, footer actualisé à `Prototype Phase 3.3`).
+9. **DEC-025.9 — Validation technique automatisée :** La suite complète post-fusion valide 255/255 tests Vitest (21 fichiers, 0 échec, 0 désactivé), typechecks serveur et client PASS, build PASS et diff-check PASS.
+10. **DEC-025.10 — Clôture et suites :** Phase 3.3 officiellement terminée. La prochaine phase analytique (Phase 3.4+) n'est pas autorisée automatiquement et fera l'objet d'un arbitrage formel ultérieur par le Fondateur.
