@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.5
+> **Version :** 2.6
 
 # Decision Log
 
@@ -1122,3 +1122,29 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 8. **DEC-026.8 — Filtres stricts et gestion des cas limites :** Matchs `FINISHED` uniquement avec score complet, coupure temporelle stricte `utcDate < targetDate`. En cas de 0 confrontation, statut `INSUFFICIENT_DATA` sans faux zéros. En cas d'échec provider, dégradation locale `UNAVAILABLE` sans nouvel état global de page.
 9. **DEC-026.9 — Intégrité de l'infrastructure et coût :** Maintien du port `SportsDataProvider` inchangé. Interdiction absolue des requêtes N+1 ($O(N)$ proscrit). Aucune supposition sur les capacités de `football-data.org` sans audit hors production.
 10. **DEC-026.10 — Questions Ouvertes (OQ-016 à OQ-028) et séquence :** 13 questions ouvertes formellement ouvertes relatives à l'horizon temporel (saison courante vs multi-saison), la profondeur maximale, les segments Domicile/Extérieur, les coupes/amicaux, les DTOs et le budget provider. Séquence : DEC-026 -> Arbitrages OQ-016..OQ-028 -> DEC-027 (Conception technique) -> Implémentation ultérieure.
+
+---
+
+## DEC-027 — Phase 3.4 — Conception technique du H2H contextualisé
+
+- **Date :** 2026-08-20
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Document de référence :** `docs/03-technical-architecture/phase-3-4-h2h-technical-design.md`
+
+### Résumé des arbitrages et spécifications DEC-027
+
+1. **DEC-027.1 — Conception technique détaillée verrouillée :** La conception technique du H2H contextualisé (Phase 3.4) est formellement définie. L'implémentation logicielle, les modifications de code et les requêtes réseau sont interdites avant fusion et audit de cette décision.
+2. **DEC-027.2 — Résolution formelle des Questions Ouvertes (OQ-016 à OQ-028) :**
+   - *OQ-016 & OQ-017 :* H2H multi-saison borné à maximum 5 confrontations exploitables et 3 saisons distinctes (saison cible, N-1, N-2).
+   - *OQ-018 :* Exposition explicite de `sampleSize`, `latestMeetingDate`, `oldestMeetingDate` et `seasonsCovered` sans aucune pondération de récence.
+   - *OQ-019 :* Deux segments indépendants : segment global (`overall`) et segment contextualisé au lieu (`contextual` avec `venue: 'SAME_VENUE'`).
+   - *OQ-020, OQ-021 & OQ-022 :* Même compétition uniquement (`competitionId`), coupes incluses uniquement si le match cible est de coupe, amicaux exclus.
+   - *OQ-023 & OQ-024 :* Contrat de disponibilité à union discriminée (`AVAILABLE`, `INSUFFICIENT_DATA` avec `metrics: null`, `UNAVAILABLE` local).
+   - *OQ-025 :* DTO explicite `HeadToHeadProfile` avec perspectives d'équipe symétriques (`HeadToHeadPerspective`).
+   - *OQ-026 :* Évolution générique autorisée du port `SportsDataProvider` avec `HistoryFilter` neutre (Option 3B). Aucune méthode spécifique H2H.
+   - *OQ-027 :* Double budget dur : $\le 2$ invocations logiques Application, $\le 5$ requêtes HTTP amont (Target $\le 4$), complexité réseau $O(1)$ sans N+1.
+   - *OQ-028 :* Mutualisation obligatoire du flux historique entre `FormCalculator`, `SeasonStrengthCalculator` et `HeadToHeadCalculator`.
+3. **DEC-027.3 — Composant pur `HeadToHeadCalculator` :** Service de domaine déterministe et pur, sans I/O ni Date.now(), calculant les confrontations à partir du corpus historique mutualisé.
+4. **DEC-027.4 — Invariants de symétrie et sécurité :** Invariants mathématiques stricts (`wins` = `losses` adverses, etc.), filtrage par identifiants métier stables `Team.id` (matching par nom interdit), coupure temporelle stricte `utcDate < targetDate`.
+5. **DEC-027.5 — Non-régression et stabilité :** Form 5 et Season Strength restent strictement étanches et limitées à la saison courante. Maintien strict de 9 états globaux frontend. Route `/matches` inchangée. Aucun appel réseau réel requis.
