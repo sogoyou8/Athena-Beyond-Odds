@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.14
+> **Version :** 2.15
 
 # Decision Log
 
@@ -1315,3 +1315,27 @@ La version 2.13 du Decision Log (commit direct `9fc1b03` sur la branche principa
 5. **Budgets & Providers préservés :** `SportsDataProvider` et `HistoryFilter` inchangés, 0 nouvel appel provider, hard max HTTP $\le 5$, complexité réseau $O(1)$ sans N+1.
 6. **Socle analytique ATHENA (5 briques) :** Form 5, Season Strength, H2H contextualisé, Repos & Congestion, Momentum descriptif. Ces 5 briques constituent des signaux purement descriptifs (aucun modèle prédictif, aucune probabilité, aucun Kelly/EV).
 7. **Suite du projet :** La Phase 3.6 est officiellement **CLOSE**. L'orientation de la suite fera l'objet d'un arbitrage Fondateur séparé.
+
+---
+
+## DEC-035 — Phase 3.7 — Cadrage Opponent Context / Contexte d'adversité
+
+- **Date :** 2026-08-21
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Documents de référence :**
+  - `docs/03-technical-architecture/phase-3-7-opponent-context-framing.md`
+  - Arbitrages Fondateur OQ-082 à OQ-125 approuvés formellement
+
+### Résumé des arbitrages et du cadrage DEC-035
+
+1. **DEC-035.1 — Objet et nature descriptive (OQ-082, OQ-083) :** Cadrage du signal analytique « Opponent Context / Contexte d'adversité » (nom UI : « Adversaires récents »). La brique répond strictement à : *« Quel était le niveau saisonnier des adversaires rencontrés dans les matchs récents de cette équipe ? »*. Zéro prédiction, zéro score composite, zéro label de difficulté.
+2. **DEC-035.2 — Complémentarité sans ajustement (OQ-084, OQ-085, OQ-103, OQ-104) :** Complète Form 5 sans le modifier. Ne recalcule aucun Momentum ajusté. Ne constitue aucun Power Rating / Elo.
+3. **DEC-035.3 — Fenêtre et seuil minimal (OQ-086, OQ-087) :** Maximum 5 matchs récents éligibles (`FINISHED`, même compétition, même équipe, saison cible, cutoff strict). Seuil d'évaluation : minimum 3 adversaires évaluables pour l'état `AVAILABLE` (sinon `INSUFFICIENT_DATA`).
+4. **DEC-035.4 — Étanchéité de saison et snapshot temporel strict (OQ-088, OQ-089, OQ-090) :** `TARGET_SEASON_ONLY` (zéro carryover N-1). Évaluation des adversaires à la date du match cible ($T$) sur leurs matchs antérieurs à $T$ (`OPPONENT_PROFILE_CUTOFF = TARGET_MATCH_DATE`). Zéro data leakage, prêt pour les futurs backtests chronologiques.
+5. **DEC-035.5 — Métriques évaluées et contexte terrain (OQ-091 à OQ-094) :** Points/match (PPM) et différence de buts/match (GD/m) en profil global (overall), complétés du profil contextuel correspondant au terrain où évoluait l'adversaire lors de la confrontation (venue HOME ou AWAY).
+6. **DEC-035.6 — Agrégats et détails explicables (OQ-095, OQ-096, OQ-099) :** Moyenne arithmétique simple non pondérée. Agrégats overall et contextuels séparés avec leurs sample sizes propres. Conservation de jusqu'à 5 entrées détaillées d'adversaires récents pour garantir la traçabilité.
+7. **DEC-035.7 — Sémantique des zéros et états (OQ-101, OQ-102) :** Préservation des vrais zéros en état `AVAILABLE`. Nullabilité des agrégats en `INSUFFICIENT_DATA` et `UNAVAILABLE` (zéro faux zéro).
+8. **DEC-035.8 — Intentions d'architecture et budgets (OQ-105 à OQ-110, OQ-123) :** Intention de réutiliser le flux historique partagé et l'index `historyByTeam` sans modifier `SportsDataProvider` ni `HistoryFilter`. Budgets cibles : $\le 2$ appels Application, $\le 5$ requêtes HTTP hard max, $O(1)$ sans N+1. Mémoïsation locale request-scoped autorisée avec clé sensible au cutoff (`teamId + targetMatch.utcDate`).
+9. **DEC-035.9 — Frontend et intégration visuelle (OQ-111 à OQ-116) :** Bloc « Adversaires récents » placé après « Dynamique récente », formatage à 2 décimales, présentation neutre. Dégradation locale propre vers `UNAVAILABLE` en cas d'erreur flux. 9 états globaux inchangés.
+10. **DEC-035.10 — Périmètres exclus et suites (OQ-117 à OQ-120) :** Football v1 uniquement. Travel, Power Rating, marchés de paris et cotes exclus. Réalisation obligatoire d'un **Gate A de faisabilité technique Phase 3.7** après fusion de DEC-035 avant toute conception technique (DEC-036).
