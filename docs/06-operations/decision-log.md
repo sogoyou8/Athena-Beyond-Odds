@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.8
+> **Version :** 2.9
 
 # Decision Log
 
@@ -1192,3 +1192,28 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 8. **DEC-029.8 — Contraintes architecturales (OQ-044 à OQ-046) :** Corpus historique mutualisé Phase 3.4 réutilisé (à vérifier en DEC-030). Budget maintenu : $\le 2$ invocations logiques Application. N+1 strictement interdit — complexité réseau $O(1)$. Aucun nouvel appel provider.
 9. **DEC-029.9 — Frontend (OQ-049) :** Bloc compact factuel « Repos & Congestion » par carte. Pas de graphique, pas de jauge rouge/verte, pas de score synthétique, pas de nouvel état global frontend.
 10. **DEC-029.10 — Prochaine étape :** DEC-030 (conception technique Repos & Congestion) fera l'objet d'un gate séparé après fusion du présent document. DEC-030 devra prouver que le corpus mutualisé Phase 3.4 couvre les fenêtres 7 / 14 / 28 jours et la politique `SEASON_BOUNDARY_WITH_28_DAY_CARRYOVER` sans requérir de nouvel appel provider.
+
+---
+
+## DEC-030 — Phase 3.5 — Conception technique de Repos & Congestion
+
+- **Date :** 2026-08-20
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Documents de référence :**
+  - `docs/03-technical-architecture/phase-3-5-rest-congestion-technical-design.md`
+  - `docs/03-technical-architecture/phase-3-5-rest-congestion-framing.md` (DEC-029)
+  - Gate A — Faisabilité technique Phase 3.5 (Verdict : CONFORME AVEC CONTRAINTES)
+
+### Résumé des arbitrages et de la conception technique DEC-030
+
+1. **DEC-030.1 — Port et provider inchangés :** `SportsDataProvider` et `HistoryFilter` restent strictement inchangés. Aucun nouvel endpoint, aucun nouveau paramètre, aucun appel réseau provider supplémentaire.
+2. **DEC-030.2 — Corpus mutualisé et budgets :** L'appel unique mutualisé `provider.getMatches(code, undefined, undefined, { seasonCount: 3 })` alimente conjointement Form 5, Season Strength, H2H et Repos & Congestion. Double budget strictement respecté : $\le 2$ invocations logiques Application, $\le 5$ requêtes HTTP amont sur cold path (Normal = 4, Fallback catalogue = 5), 0 extra HTTP pour Repos & Congestion, complexité réseau $O(1)$ sans N+1.
+3. **DEC-030.3 — Sémantique temporelle de « Jour » (MINOR-001) :** Périodes complètes de 24h écoulées en UTC pur : $\lfloor (\text{laterUtcDate} - \text{earlierUtcDate}) / 86\,400\,000 \rfloor$. Aucun `Date.now()`, aucune dépendance locale. Fenêtres $N$ jours : $[\text{targetDate} - N \times 24\text{h}, \text{targetDate}[$.
+4. **DEC-030.4 — Sémantique de `minimumRestDaysInLast14Days` (MINOR-002) :** Intervalle consécutif éligible si son match le plus récent tombe dans $J-14$ ($[\text{targetDate} - 14 \times 24\text{h}, \text{targetDate}[$). Le prédécesseur immédiat peut être situé avant $J-14$ (sous réserve de respecter l'éligibilité saison/carryover). Retourne `null` si aucun intervalle éligible.
+5. **DEC-030.5 — Nullabilité de `shortRest` (MINOR-003) :** `shortRest = (daysSinceLastMatch <= 3)` si `daysSinceLastMatch !== null`, et strictement `null` sinon (jamais `false` par défaut en absence de données).
+6. **DEC-030.6 — Résolution provider-neutral de N-1 :** Interdiction stricte du parsing de chaînes `seasonId`. Détermination locale de `PREVIOUS_SEASON_ID` par regroupement des `seasonId` distincts et identification de la saison dont le match le plus récent précède immédiatement `targetMatch.utcDate`. Carryover $N-1 \le 28$ jours. $N-2$ exclu.
+7. **DEC-030.7 — Composant `ScheduleLoadCalculator` et DTO :** Service de domaine pur, sans I/O ni état persistant, déterminisme strict (tri `utcDate DESC`, tie-break `Match.id DESC`). Matchs `FINISHED` sans score complet acceptés. DTO `ScheduleLoadProfile` intégré dans `AnalyticalMatchEntry` sous `/analysis`. Route `/matches` inchangée.
+8. **DEC-030.8 — Optimisation locale d'Application :** Indexation locale en mémoire par équipe (`Map<TeamId, Match[]>`) scoped à la requête dans le use case, sans persistance ni impact sur Form/SeasonStrength/H2H.
+9. **DEC-030.9 — Frontend et UI :** Bloc « Repos & congestion » factuel par carte. Mention explicite « Charge dans cette compétition ». Aucune terminologie physiologique, aucune jauge, aucun score synthétique. 9 états globaux inchangés.
+10. **DEC-030.10 — Non-régression et suites :** 53 scénarios de test d'implémentation spécifiés (Domaine, Application, Provider, Frontend). L'implémentation logicielle fera l'objet d'une autorisation formelle séparée après fusion de DEC-030.
