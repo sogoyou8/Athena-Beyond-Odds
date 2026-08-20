@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.1
+> **Version :** 2.2
 
 # Decision Log
 
@@ -1031,3 +1031,25 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 8. **DEC-022.8 — Cause du HTTP 400 historique :** La cause de l'erreur 400 observée lors de la tentative initiale reste enregistrée comme `UNKNOWN`. Le succès ultérieur en HTTP 200 sur la même URL confirme l'absence de défaut structurel de requête dans Athena.
 9. **DEC-022.9 — Aucun nouvel appel réseau requis :** Aucun appel réel supplémentaire n'est autorisé ni nécessaire.
 10. **DEC-022.10 — Prochaine brique analytique :** Le choix de la brique analytique suivante (Phase 3.3+) fera l'objet d'un arbitrage distinct par le Fondateur.
+
+---
+
+## DEC-023 — Phase 3.3 — Cadrage du profil de force saisonnier des équipes
+
+- **Date :** 2026-08-20
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Document de référence :** `docs/03-technical-architecture/phase-3-3-season-strength-framing.md`
+
+### Résumé des arbitrages et cadrages DEC-023
+
+1. **DEC-023.1 — Ouverture de la Phase 3.3 en cadrage uniquement :** La Phase 3.3 (Profil de force saisonnier des équipes) est officiellement ouverte pour cadrage produit et architectural. L'implémentation logicielle n'est pas autorisée à ce stade.
+2. **DEC-023.2 — Nature du profil saisonnier :** Couche analytique purement factuelle, descriptive et déterministe situant la performance structurelle de chaque équipe sur l'ensemble de la saison courante.
+3. **DEC-023.3 — Distinction stricte avec Form 5 :** Form 5 représente le momentum récent (court terme, max 5 matchs), tandis que le profil saisonnier représente le niveau de fond sur la saison complète. Interdiction de métriques récentes redondantes (*Last 3*, *Last 5 bis*).
+4. **DEC-023.4 — Métriques Core candidates :** Matchs joués (`played`), bilan (`wins`/`draws`/`losses`), points cumulés, points par match (`pointsPerMatch`), buts marqués/encaissés (`goalsFor`/`goalsAgainst`), différence de buts (`goalDifference`), moyennes de buts par match.
+5. **DEC-023.5 — Splits Domicile / Extérieur :** Prise en compte de la pertinence des déclinaisons Domicile (`homeSplit`) et Extérieur (`awaySplit`) contextualisées au match cible.
+6. **DEC-023.6 — Interdiction des scores synthétiques et prédictions :** Aucun score synthétique composite (ex. *Power Rating*, score 0-100), aucun modèle probabiliste, aucun Machine Learning, aucune cote (*odds*), aucune recommandation de mise.
+7. **DEC-023.7 — Contrainte d'architecture Anti N+1 ($O(1)$ provider) :** Réutilisation prioritaire du dataset historique de la saison courante déjà mutualisé pour Form 5 sans générer d'appels API supplémentaires par équipe ou par carte.
+8. **DEC-023.8 — Disponibilité et zéro match :** Gestion normalisée des états `AVAILABLE`, `INSUFFICIENT_DATA` et `UNAVAILABLE`. Interdiction de fabriquer des faux zéros statistiques (0.00 PPG) en cas de 0 match terminé. Dégradation gracieuse préservée.
+9. **DEC-023.9 — Questions Ouvertes (OQ-007 à OQ-015) :** Cadrage formel des questions ouvertes relatives au classement éventuel (`seasonRank`), au seuil de représentativité statistique ($N$), aux arrondis UI, au format des DTOs et à la sélection des métriques sans bruit.
+10. **DEC-023.10 — Séquence de validation obligatoire :** Validation du cadrage produit (DEC-023) -> Arbitrage du Fondateur sur OQ-007..OQ-015 -> Conception technique détaillée (DEC-024) -> Implémentation autorisable ultérieurement.
