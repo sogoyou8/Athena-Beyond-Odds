@@ -55,15 +55,21 @@ export type DurationClockFn = () => number;
  * Sanitise un texte candidat issu d'un body d'erreur provider (DEC-021).
  *
  * - Accepte uniquement des primitives ; rejette les objets et tableaux.
+ * - Redacte toute occurrence exacte des secrets fournis (AVANT troncature).
  * - Supprime les caractères de contrôle (0x00-0x1F, 0x7F) sauf espace (0x20).
- * - Tronque à 256 caractères maximum.
+ * - Tronque à `maxLength` caractères maximum.
  * - Retourne undefined si le résultat est vide.
  *
- * Ne reçoit jamais de token, d'en-tête ou de variable d'environnement.
+ * IMPORTANT : la redaction se produit AVANT la troncature pour éviter qu'un
+ * fragment de secret ne soit conservé à la frontière des N caractères.
+ *
+ * Ne reçoit jamais de token, d'en-tête ou de variable d'environnement comme
+ * donnée de sortie ; les secrets ne sont utilisés que comme motif de recherche.
  */
 export function sanitizeProviderText(
   raw: unknown,
-  maxLength: number = 256
+  maxLength: number = 256,
+  secretsToRedact?: readonly string[]
 ): string | undefined {
   if (
     raw === null ||
@@ -73,10 +79,21 @@ export function sanitizeProviderText(
   ) {
     return undefined;
   }
-  const str = String(raw)
+  let str = String(raw)
     // Supprime les caractères de contrôle (incl. \r\n\t) sauf espace
     .replace(/[\x00-\x1F\x7F]+/g, ' ')
     .trim();
+  // Redaction des secrets AVANT la troncature (DEC-021.7)
+  if (secretsToRedact) {
+    for (const secret of secretsToRedact) {
+      // Protéger contre une chaîne vide qui remplacerait chaque position
+      if (!secret || secret.length === 0) {
+        continue;
+      }
+      // Remplacer toutes les occurrences littérales exactes
+      str = str.split(secret).join('[REDACTED]');
+    }
+  }
   if (str.length === 0) {
     return undefined;
   }
@@ -88,22 +105,29 @@ export function sanitizeProviderText(
  *
  * - Lit le body UNE seule fois.
  * - Inspecte uniquement les champs de la whitelist dans l'ordre : message > error > errorCode > code.
+ * - Redacte toute occurrence de `apiKey` dans le diagnostic AVANT la troncature.
  * - Ne stocke pas le raw body.
  * - En cas d'échec de parsing JSON, retourne un diagnostic générique.
- * - N'injecte jamais token, headers ou variables d'environnement.
+ * - N'injecte jamais token, headers ou variables d'environnement en sortie.
  */
-export async function extractRejectionDiagnostic(response: Response): Promise<{
+export async function extractRejectionDiagnostic(
+  response: Response,
+  apiKey?: string
+): Promise<{
   providerMessage: string | undefined;
   providerCode: string | undefined;
 }> {
+  // Construction de la liste de secrets à redacter (jamais exposée en sortie)
+  const secrets: readonly string[] =
+    apiKey && apiKey.length > 0 ? [apiKey] : [];
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const body: any = await response.json();
-    // Whitelist strictément limitée (DEC-021.4)
-    const message = sanitizeProviderText(body?.message);
-    const error = sanitizeProviderText(body?.error);
-    const errorCode = sanitizeProviderText(body?.errorCode, 64);
-    const code = sanitizeProviderText(body?.code, 64);
+    // Whitelist strictément limitée (DEC-021.4) — redaction appliquée avant troncature
+    const message = sanitizeProviderText(body?.message, 256, secrets);
+    const error = sanitizeProviderText(body?.error, 256, secrets);
+    const errorCode = sanitizeProviderText(body?.errorCode, 64, secrets);
+    const code = sanitizeProviderText(body?.code, 64, secrets);
     // Le raw body est abandonné immédiatement après cette extraction
     return {
       providerMessage: message ?? error ?? undefined,
@@ -325,8 +349,9 @@ export class FootballDataOrgAdapter implements SportsDataProvider {
     if (response.status === 400) {
       const durationMs = getDurationMs();
       // Lecture unique du body d'erreur pour extraction diagnostique sécurisée (DEC-021)
-      const { providerMessage, providerCode } = await extractRejectionDiagnostic(response);
-      // Le raw body est abandonné ici ; seuls les champs sanitisés sont conservés.
+      // this.apiKey est passé uniquement comme motif de redaction interne — jamais loggé/stocké
+      const { providerMessage, providerCode } = await extractRejectionDiagnostic(response, this.apiKey);
+      // Le raw body est abandonné ici ; seuls les champs sanitisés et redactés sont conservés.
       safeObserve(this.observer, {
         type: 'provider_request_rejected',
         competitionCode,

@@ -762,14 +762,20 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
       // On vérifie que la classe ne stoque pas la clé comme propriété interne
       const err = await makeAdapter(mockFetch).getMatches('FL1').catch((e) => e);
       expect(err).toBeInstanceOf(ProviderRequestRejectedError);
-      // La propriété de l'erreur ne doit pas exposer le token comme champ direct
+      // Champs structurels (non exposés)
       expect(Object.keys(err)).not.toContain('apiKey');
       expect(Object.keys(err)).not.toContain('token');
       expect(Object.keys(err)).not.toContain('X-Auth-Token');
+      // Valeur réelle du token absente de providerMessage (E-2 renforcement)
+      expect(err.providerMessage).not.toContain('test-key-never-exposed');
+      // Placeholder présent (redaction effective)
+      expect(err.providerMessage).toContain('[REDACTED]');
+      // JSON.stringify de l'erreur complète ne contient pas le token
+      expect(JSON.stringify(err)).not.toContain('test-key-never-exposed');
     });
 
-    // J. X-Auth-Token absent des propriétés de l'erreur
-    it('J. l\'erreur ne contient aucune propriété X-Auth-Token ou header', async () => {
+    // J. (renforcé) erreur sérialisée ne contient ni X-Auth-Token ni valeur apiKey
+    it('J. (renforcé) erreur sérialisée ne contient ni X-Auth-Token ni valeur apiKey', async () => {
       const mockFetch = vi.fn().mockResolvedValue(
         new Response(JSON.stringify({ message: 'rejected' }), { status: 400 })
       );
@@ -778,6 +784,199 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
       const errJson = JSON.stringify(err);
       expect(errJson).not.toContain('X-Auth-Token');
       expect(errJson).not.toContain('test-key-never-exposed');
+    });
+
+    // ================================================================
+    // E-1 / E-2 — REDACTION DU TOKEN DANS LE DIAGNOSTIC (DEC-021.7)
+    // Secret fictif : TEST_SECRET_ABC_987654
+    // Aucun vrai token utilisé.
+    // ================================================================
+
+    const FAKE_SECRET = 'TEST_SECRET_ABC_987654';
+
+    const makeAdapterWithSecret = (fetchFn: ReturnType<typeof vi.fn>, apiKey = FAKE_SECRET) =>
+      new FootballDataOrgAdapter({
+        apiKey,
+        fetchFn,
+        clockFn: mockClock,
+      });
+
+    // E-1-a. Token dans le champ message — doit être redacté dans providerMessage
+    it('E-1-a. redacte le token dans providerMessage si le provider l\'écho dans message', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ message: `invalid token ${FAKE_SECRET} provided` }),
+          { status: 400 }
+        )
+      );
+      const err = await makeAdapterWithSecret(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      // Secret absent de providerMessage
+      expect(err.providerMessage).not.toContain(FAKE_SECRET);
+      // Placeholder présent
+      expect(err.providerMessage).toContain('[REDACTED]');
+      // Secret absent de JSON.stringify(error)
+      expect(JSON.stringify(err)).not.toContain(FAKE_SECRET);
+    });
+
+    // E-1-b. Token dans le champ errorCode — doit être redacté dans providerCode
+    it('E-1-b. redacte le token dans providerCode si présent dans errorCode', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ message: 'bad request', errorCode: `ERR_${FAKE_SECRET}` }),
+          { status: 400 }
+        )
+      );
+      const err = await makeAdapterWithSecret(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      expect(err.providerCode).not.toContain(FAKE_SECRET);
+      expect(err.providerCode).toContain('[REDACTED]');
+    });
+
+    // E-1-c. Token dans le champ code — sous-chaîne
+    it('E-1-c. redacte le token même en tant que sous-chaîne dans code', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ code: `PREFIX_${FAKE_SECRET}_SUFFIX` }),
+          { status: 400 }
+        )
+      );
+      const err = await makeAdapterWithSecret(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      expect(err.providerCode).not.toContain(FAKE_SECRET);
+      expect(err.providerCode).toContain('[REDACTED]');
+    });
+
+    // E-1-d. Occurrences multiples du token dans le même message
+    it('E-1-d. redacte TOUTES les occurrences multiples du token', async () => {
+      const msgWithMultiple = `${FAKE_SECRET} x ${FAKE_SECRET}`;
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: msgWithMultiple }), { status: 400 })
+      );
+      const err = await makeAdapterWithSecret(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      expect(err.providerMessage).not.toContain(FAKE_SECRET);
+      // Les deux occurrences doivent être remplacées
+      expect(err.providerMessage?.includes(FAKE_SECRET)).toBe(false);
+    });
+
+    // E-1-e. Redaction AVANT troncature — frontière des 256 chars
+    it('E-1-e. la redaction s\'applique avant la troncature (frontière 256)', async () => {
+      // Construire un message dont le token se trouve pile à la frontière de troncature
+      // préfixe de 240 chars + token de 22 chars = 262 chars total
+      const prefix = 'a'.repeat(240);
+      const msgWithSecret = `${prefix}${FAKE_SECRET}X`; // 263 chars
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: msgWithSecret }), { status: 400 })
+      );
+      const err = await makeAdapterWithSecret(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      // La longueur finale doit être <= 256
+      expect(err.providerMessage!.length).toBeLessThanOrEqual(256);
+      // Aucun fragment du token ne doit survivre (la valeur complète ou un fragment)
+      expect(err.providerMessage).not.toContain(FAKE_SECRET);
+    });
+
+    // E-2-a. Telemetry anti-fuite — le secret ne doit pas apparaître dans l'event provider_request_rejected
+    it('E-2-a. l\'event telemetry provider_request_rejected ne contient pas le token', async () => {
+      const observedEvents: unknown[] = [];
+      const fakeObserver = (event: unknown) => { observedEvents.push(event); };
+
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ message: `provider echoed ${FAKE_SECRET}` }),
+          { status: 400 }
+        )
+      );
+
+      const adapter = new FootballDataOrgAdapter({
+        apiKey: FAKE_SECRET,
+        fetchFn: mockFetch,
+        clockFn: mockClock,
+        observer: fakeObserver as Parameters<typeof FootballDataOrgAdapter>[0]['observer'],
+      });
+
+      await adapter.getMatches('FL1').catch(() => {});
+
+      // Exactement 1 event provider_request_rejected
+      const rejectedEvents = observedEvents.filter(
+        (e) => (e as { type: string }).type === 'provider_request_rejected'
+      );
+      expect(rejectedEvents).toHaveLength(1);
+
+      // Aucun event provider_unavailable pour ce même 400
+      const unavailableEvents = observedEvents.filter(
+        (e) => (e as { type: string }).type === 'provider_unavailable'
+      );
+      expect(unavailableEvents).toHaveLength(0);
+
+      // Le secret ne doit pas figurer dans l'event sérialisé
+      const eventJson = JSON.stringify(rejectedEvents[0]);
+      expect(eventJson).not.toContain(FAKE_SECRET);
+      // Le placeholder peut être présent dans providerMessage
+      expect(eventJson).toContain('[REDACTED]');
+    });
+
+    // E-2-b. Body non-JSON avec texte sensible fictif — aucun raw text dans erreur ni telemetry
+    it('E-2-b. body non-JSON sensible -> diagnostic générique, secret absent erreur et telemetry', async () => {
+      const observedEvents: unknown[] = [];
+      const fakeObserver = (event: unknown) => { observedEvents.push(event); };
+
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(`${FAKE_SECRET} RAW SENSITIVE TEXT`, { status: 400 })
+      );
+
+      const adapter = new FootballDataOrgAdapter({
+        apiKey: FAKE_SECRET,
+        fetchFn: mockFetch,
+        clockFn: mockClock,
+        observer: fakeObserver as Parameters<typeof FootballDataOrgAdapter>[0]['observer'],
+      });
+
+      const err = await adapter.getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      // Diagnostic générique
+      expect(err.providerMessage).toBeUndefined();
+      expect(err.providerCode).toBeUndefined();
+      // Secret absent de l'erreur
+      expect(JSON.stringify(err)).not.toContain(FAKE_SECRET);
+      // Secret absent de la telemetry
+      const eventJson = JSON.stringify(observedEvents);
+      expect(eventJson).not.toContain(FAKE_SECRET);
+    });
+
+    // E-2-c. Objets/arrays avec secret imbriqué — ignorés, aucune sérialisation
+    it('E-2-c. objets/arrays avec secret imbriqué -> ignorés, secret absent', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            message: { secret: FAKE_SECRET },
+            error: [FAKE_SECRET],
+          }),
+          { status: 400 }
+        )
+      );
+      const err = await makeAdapterWithSecret(mockFetch).getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      expect(err.providerMessage).toBeUndefined();
+      expect(JSON.stringify(err)).not.toContain(FAKE_SECRET);
+    });
+
+    // E-2-d. Token absent si apiKey est vide — protection contre remplacement de chaîne vide
+    it('E-2-d. aucune redaction si apiKey est vide (protection contre remplacement vide)', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: 'normal date error' }), { status: 400 })
+      );
+      // Adaptateur sans apiKey (chaîne vide)
+      const adapterNoKey = new FootballDataOrgAdapter({
+        apiKey: '',
+        fetchFn: mockFetch,
+        clockFn: mockClock,
+      });
+      const err = await adapterNoKey.getMatches('FL1').catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderRequestRejectedError);
+      // Le message doit rester intact (pas de remplacement de chaîne vide)
+      expect(err.providerMessage).toBe('normal date error');
     });
 
     // K. 401 — non-régression
@@ -842,6 +1041,37 @@ describe('FootballDataOrgAdapter (Unit Tests)', () => {
     it('sanitizeProviderText: supprime les caractères de contrôle', () => {
       const result = sanitizeProviderText('line1\nline2\x00end');
       expect(result).not.toMatch(/[\x00-\x1F\x7F]/);
+    });
+
+    it('sanitizeProviderText: redacte le secret dans la sortie', () => {
+      const result = sanitizeProviderText('invalid token TEST_SECRET_ABC_987654 here', 256, ['TEST_SECRET_ABC_987654']);
+      expect(result).not.toContain('TEST_SECRET_ABC_987654');
+      expect(result).toContain('[REDACTED]');
+    });
+
+    it('sanitizeProviderText: redacte toutes les occurrences du secret', () => {
+      const result = sanitizeProviderText('TEST_SECRET_ABC_987654 x TEST_SECRET_ABC_987654', 256, ['TEST_SECRET_ABC_987654']);
+      expect(result).not.toContain('TEST_SECRET_ABC_987654');
+      // [REDACTED] doit apparaître deux fois
+      expect(result?.split('[REDACTED]').length).toBe(3); // 2 remplacements = 3 fragments
+    });
+
+    it('sanitizeProviderText: ignore les secrets vides dans secretsToRedact', () => {
+      const result = sanitizeProviderText('hello world', 256, ['', 'world']);
+      // '' ne doit pas provoquer un remplacement de chaque char, 'world' redacté
+      expect(result).not.toContain('world');
+      expect(result).toContain('[REDACTED]');
+      expect(result).toContain('hello');
+    });
+
+    it('sanitizeProviderText: la redaction précède la troncature (token à la frontière)', () => {
+      // Préfixe de 240 + token de 22 = 262 chars (avant remplacement)
+      const prefix = 'a'.repeat(240);
+      const secret = 'TEST_SECRET_ABC_987654'; // 22 chars
+      const input = `${prefix}${secret}X`; // 263 chars
+      const result = sanitizeProviderText(input, 256, [secret]);
+      expect(result!.length).toBeLessThanOrEqual(256);
+      expect(result).not.toContain(secret);
     });
   });
 });
