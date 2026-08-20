@@ -156,6 +156,37 @@ export interface MomentumProfileDTO {
   goalDifferencePerMatchDelta: number | null;
 }
 
+export type OpponentContextAvailabilityDTO = 'AVAILABLE' | 'INSUFFICIENT_DATA' | 'UNAVAILABLE';
+export type OpponentVenueDTO = 'HOME' | 'AWAY';
+
+export interface OpponentContextMetricsDTO {
+  sampleSize: number;
+  pointsPerMatch: number;
+  goalDifferencePerMatch: number;
+}
+
+export interface OpponentContextEntryDTO {
+  recentMatchId: string;
+  opponentTeamId: string;
+  opponentTeamName: string;
+  matchDate: string;
+  opponentVenue: OpponentVenueDTO;
+  overall: OpponentContextMetricsDTO;
+  contextual: OpponentContextMetricsDTO;
+}
+
+export interface OpponentContextProfileDTO {
+  availability: OpponentContextAvailabilityDTO;
+  recentMatchSampleSize: number | null;
+  evaluatedOpponentSampleSize: number | null;
+  contextualSampleSize: number | null;
+  averageOpponentPointsPerMatch: number | null;
+  averageOpponentGoalDifferencePerMatch: number | null;
+  averageContextualOpponentPointsPerMatch: number | null;
+  averageContextualOpponentGoalDifferencePerMatch: number | null;
+  opponents: OpponentContextEntryDTO[];
+}
+
 export interface AnalyticalMatchEntryDTO {
   match: MatchDTO;
   form: {
@@ -174,6 +205,10 @@ export interface AnalyticalMatchEntryDTO {
   momentum?: {
     home: MomentumProfileDTO;
     away: MomentumProfileDTO;
+  };
+  opponentContext?: {
+    home: OpponentContextProfileDTO;
+    away: OpponentContextProfileDTO;
   };
 }
 

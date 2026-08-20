@@ -502,4 +502,161 @@ describe('Render DOM Unit Tests (happy-dom)', () => {
       expect(el.textContent).not.toContain('+-');
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Phase 3.7 : Opponent Context / Adversaires récents (DEC-035 / DEC-036)
+  // -------------------------------------------------------------------------
+
+  describe('Phase 3.7 Opponent Context UI Rendering (DEC-036)', () => {
+    it('createOpponentContextTeamElement: renders AVAILABLE state with aggregates, ratios and entries', () => {
+      const profile = {
+        availability: 'AVAILABLE' as const,
+        recentMatchSampleSize: 5,
+        evaluatedOpponentSampleSize: 4,
+        contextualSampleSize: 5,
+        averageOpponentPointsPerMatch: 1.75,
+        averageOpponentGoalDifferencePerMatch: 0.25,
+        averageContextualOpponentPointsPerMatch: 2.0,
+        averageContextualOpponentGoalDifferencePerMatch: -0.5,
+        opponents: [
+          {
+            recentMatchId: 'm1',
+            opponentTeamId: 't-gamma',
+            opponentTeamName: 'Gamma City',
+            matchDate: '2099-08-10T18:00:00.000Z',
+            opponentVenue: 'AWAY' as const,
+            overall: { sampleSize: 4, pointsPerMatch: 1.75, goalDifferencePerMatch: 0.25 },
+            contextual: { sampleSize: 2, pointsPerMatch: 2.0, goalDifferencePerMatch: 0.5 },
+          },
+          {
+            recentMatchId: 'm2',
+            opponentTeamId: 't-delta',
+            opponentTeamName: 'Delta Athletic',
+            matchDate: '2099-08-07T18:00:00.000Z',
+            opponentVenue: 'HOME' as const,
+            overall: { sampleSize: 4, pointsPerMatch: 1.25, goalDifferencePerMatch: 0.0 },
+            contextual: { sampleSize: 2, pointsPerMatch: 1.5, goalDifferencePerMatch: 0.0 },
+          },
+        ],
+      };
+
+      const el = document.createElement('div');
+      const teamEl = createMomentumTeamElement ? createMomentumElement : null; // sanity check
+      // Render opponent context
+      renderUI(container, announcer, {
+        status: 'matches',
+        data: [
+          {
+            match: {
+              id: 'm-target',
+              competitionId: 'FL1',
+              seasonId: '2099',
+              matchday: 1,
+              utcDate: '2099-08-15T20:00:00Z',
+              status: 'SCHEDULED',
+              homeTeam: { id: 't1', name: 'PSG', shortName: 'PSG', tla: 'PSG', crestUrl: null },
+              awayTeam: { id: 't2', name: 'OM', shortName: 'OM', tla: 'OM', crestUrl: null },
+              score: { halfTime: { home: null, away: null }, fullTime: { home: null, away: null } },
+            },
+            form: {
+              home: { teamId: 't1', availability: 'AVAILABLE', results: ['WIN'] },
+              away: { teamId: 't2', availability: 'AVAILABLE', results: ['LOSS'] },
+            },
+            opponentContext: {
+              home: profile,
+              away: {
+                availability: 'INSUFFICIENT_DATA',
+                recentMatchSampleSize: 2,
+                evaluatedOpponentSampleSize: 2,
+                contextualSampleSize: 2,
+                averageOpponentPointsPerMatch: null,
+                averageOpponentGoalDifferencePerMatch: null,
+                averageContextualOpponentPointsPerMatch: null,
+                averageContextualOpponentGoalDifferencePerMatch: null,
+                opponents: [],
+              },
+            },
+          },
+        ],
+      });
+
+      const ocSection = container.querySelector('.opponent-context-container');
+      expect(ocSection).not.toBeNull();
+      expect(ocSection?.getAttribute('aria-label')).toBe('Adversaires récents');
+      expect(ocSection?.textContent).toContain('Adversaires récents');
+      expect(ocSection?.textContent).toContain('Niveau saisonnier des adversaires affrontés');
+
+      // Home team AVAILABLE content
+      expect(ocSection?.textContent).toContain('5 matchs récents (4 adversaires distincts)');
+      expect(ocSection?.textContent).toContain('Moyenne adversaires');
+      expect(ocSection?.textContent).toContain('Pts/m : 1.75 | Diff/m : +0.25');
+      expect(ocSection?.textContent).toContain('Contexte terrain');
+      expect(ocSection?.textContent).toContain('Pts/m : 2.00 | Diff/m : -0.50');
+
+      // Entries
+      expect(ocSection?.textContent).toContain('Gamma City');
+      expect(ocSection?.textContent).toContain('Extérieur');
+      expect(ocSection?.textContent).toContain('Global : 1.75 (+0.25) | Terrain : 2.00 (+0.50)');
+
+      expect(ocSection?.textContent).toContain('Delta Athletic');
+      expect(ocSection?.textContent).toContain('Domicile');
+      expect(ocSection?.textContent).toContain('Global : 1.25 (0.00) | Terrain : 1.50 (0.00)');
+
+      // Away team INSUFFICIENT_DATA
+      expect(ocSection?.textContent).toContain('Données insuffisantes');
+    });
+
+    it('createOpponentContextElement: renders UNAVAILABLE state when history fails', () => {
+      renderUI(container, announcer, {
+        status: 'matches',
+        data: [
+          {
+            match: {
+              id: 'm-target',
+              competitionId: 'FL1',
+              seasonId: '2099',
+              matchday: 1,
+              utcDate: '2099-08-15T20:00:00Z',
+              status: 'SCHEDULED',
+              homeTeam: { id: 't1', name: 'PSG', shortName: 'PSG', tla: 'PSG', crestUrl: null },
+              awayTeam: { id: 't2', name: 'OM', shortName: 'OM', tla: 'OM', crestUrl: null },
+              score: { halfTime: { home: null, away: null }, fullTime: { home: null, away: null } },
+            },
+            form: {
+              home: { teamId: 't1', availability: 'UNAVAILABLE', results: [] },
+              away: { teamId: 't2', availability: 'UNAVAILABLE', results: [] },
+            },
+            opponentContext: {
+              home: {
+                availability: 'UNAVAILABLE',
+                recentMatchSampleSize: null,
+                evaluatedOpponentSampleSize: null,
+                contextualSampleSize: null,
+                averageOpponentPointsPerMatch: null,
+                averageOpponentGoalDifferencePerMatch: null,
+                averageContextualOpponentPointsPerMatch: null,
+                averageContextualOpponentGoalDifferencePerMatch: null,
+                opponents: [],
+              },
+              away: {
+                availability: 'UNAVAILABLE',
+                recentMatchSampleSize: null,
+                evaluatedOpponentSampleSize: null,
+                contextualSampleSize: null,
+                averageOpponentPointsPerMatch: null,
+                averageOpponentGoalDifferencePerMatch: null,
+                averageContextualOpponentPointsPerMatch: null,
+                averageContextualOpponentGoalDifferencePerMatch: null,
+                opponents: [],
+              },
+            },
+          },
+        ],
+      });
+
+      const ocSection = container.querySelector('.opponent-context-container');
+      expect(ocSection).not.toBeNull();
+      expect(ocSection?.textContent).toContain('Indisponible');
+    });
+  });
 });

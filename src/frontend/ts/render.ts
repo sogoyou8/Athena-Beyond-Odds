@@ -16,6 +16,7 @@ import {
   HeadToHeadProfileDTO,
   HeadToHeadSegmentDTO,
   MomentumProfileDTO,
+  OpponentContextProfileDTO,
 } from './api-client.js';
 
 export type ClientState =
@@ -696,6 +697,164 @@ export function createMomentumElement(
   return container;
 }
 
+/**
+ * Formate un nombre signé à 2 décimales (+0.25, -0.25, 0.00). Normalise anti -0.00.
+ */
+function formatSignedRatio(val: number): string {
+  const rounded = Math.round(val * 100) / 100;
+  if (rounded === 0 || Object.is(rounded, -0)) {
+    return '0.00';
+  }
+  const str = Math.abs(rounded).toFixed(2);
+  return rounded > 0 ? `+${str}` : `-${str}`;
+}
+
+/**
+ * Crée le bloc UI pour une équipe dans "Adversaires récents" (DEC-035 / DEC-036 Phase 3.7).
+ */
+export function createOpponentContextTeamElement(
+  teamLabel: string,
+  profile: OpponentContextProfileDTO
+): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'opponent-context-team';
+
+  const labelEl = document.createElement('div');
+  labelEl.className = 'opponent-context-team-label';
+  labelEl.textContent = teamLabel;
+  el.append(labelEl);
+
+  if (profile.availability === 'UNAVAILABLE') {
+    const status = document.createElement('div');
+    status.className = 'opponent-context-status';
+    status.textContent = 'Indisponible';
+    el.append(status);
+    return el;
+  }
+
+  if (profile.availability === 'INSUFFICIENT_DATA') {
+    const status = document.createElement('div');
+    status.className = 'opponent-context-status';
+    status.textContent = 'Données insuffisantes';
+    el.append(status);
+    return el;
+  }
+
+  // AVAILABLE : agrégats factuels et détails des rencontres récentes
+  const content = document.createElement('div');
+  content.className = 'opponent-context-content';
+
+  // En-tête : X matchs récents (Y adversaires distincts)
+  const meta = document.createElement('div');
+  meta.className = 'opponent-context-meta';
+  const recentCount = profile.recentMatchSampleSize ?? 0;
+  const distinctCount = profile.evaluatedOpponentSampleSize ?? 0;
+  meta.textContent = `${recentCount} matchs récents (${distinctCount} adversaires distincts)`;
+  content.append(meta);
+
+  // Section Agrégats
+  const aggregates = document.createElement('div');
+  aggregates.className = 'opponent-context-aggregates';
+
+  const buildAggRow = (rowLabel: string, ppm: number | null, gdm: number | null) => {
+    const row = document.createElement('div');
+    row.className = 'opponent-context-agg-row';
+    const l = document.createElement('span');
+    l.className = 'opponent-context-agg-label';
+    l.textContent = rowLabel;
+    const v = document.createElement('span');
+    v.className = 'opponent-context-agg-val';
+    const ppmStr = ppm !== null ? formatRatio(ppm) : '—';
+    const gdmStr = gdm !== null ? formatSignedRatio(gdm) : '—';
+    v.textContent = `Pts/m : ${ppmStr} | Diff/m : ${gdmStr}`;
+    row.append(l, v);
+    return row;
+  };
+
+  aggregates.append(
+    buildAggRow('Moyenne adversaires', profile.averageOpponentPointsPerMatch, profile.averageOpponentGoalDifferencePerMatch),
+    buildAggRow('Contexte terrain', profile.averageContextualOpponentPointsPerMatch, profile.averageContextualOpponentGoalDifferencePerMatch)
+  );
+  content.append(aggregates);
+
+  // Liste des rencontres récentes détaillées (max 5)
+  if (profile.opponents && profile.opponents.length > 0) {
+    const entriesList = document.createElement('div');
+    entriesList.className = 'opponent-context-entries';
+
+    for (const entry of profile.opponents) {
+      const entryRow = document.createElement('div');
+      entryRow.className = 'opponent-context-entry-row';
+
+      const oppName = document.createElement('span');
+      oppName.className = 'opponent-entry-name';
+      oppName.textContent = entry.opponentTeamName;
+
+      const oppVenue = document.createElement('span');
+      oppVenue.className = 'opponent-entry-venue';
+      oppVenue.textContent = entry.opponentVenue === 'HOME' ? 'Domicile' : 'Extérieur';
+
+      const oppStats = document.createElement('span');
+      oppStats.className = 'opponent-entry-stats';
+      const globPpm = formatRatio(entry.overall.pointsPerMatch);
+      const globGdm = formatSignedRatio(entry.overall.goalDifferencePerMatch);
+      const ctxPpm = formatRatio(entry.contextual.pointsPerMatch);
+      const ctxGdm = formatSignedRatio(entry.contextual.goalDifferencePerMatch);
+      oppStats.textContent = `Global : ${globPpm} (${globGdm}) | Terrain : ${ctxPpm} (${ctxGdm})`;
+
+      entryRow.append(oppName, oppVenue, oppStats);
+      entriesList.append(entryRow);
+    }
+
+    content.append(entriesList);
+  }
+
+  el.append(content);
+  return el;
+}
+
+/**
+ * Crée le bloc UI "Adversaires récents" pour la carte de match (DEC-035 / DEC-036 Phase 3.7).
+ */
+export function createOpponentContextElement(
+  opponentContext: {
+    home: OpponentContextProfileDTO;
+    away: OpponentContextProfileDTO;
+  }
+): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'opponent-context-container';
+  container.setAttribute('aria-label', 'Adversaires récents');
+
+  const header = document.createElement('div');
+  header.className = 'opponent-context-header';
+
+  const title = document.createElement('div');
+  title.className = 'opponent-context-title';
+  title.textContent = 'Adversaires récents';
+
+  const notice = document.createElement('div');
+  notice.className = 'opponent-context-notice';
+  notice.textContent = 'Niveau saisonnier des adversaires affrontés';
+
+  header.append(title, notice);
+  container.append(header);
+
+  const teamsContainer = document.createElement('div');
+  teamsContainer.className = 'opponent-context-teams';
+
+  const homeEl = createOpponentContextTeamElement('Domicile', opponentContext.home);
+  homeEl.classList.add('opponent-context-home');
+
+  const awayEl = createOpponentContextTeamElement('Extérieur', opponentContext.away);
+  awayEl.classList.add('opponent-context-away');
+
+  teamsContainer.append(homeEl, awayEl);
+  container.append(teamsContainer);
+
+  return container;
+}
+
 function createMatchCard(match: MatchDTO): HTMLElement {
   const card = document.createElement('article');
   card.className = 'match-card';
@@ -804,6 +963,12 @@ function createAnalyticalMatchCard(entry: AnalyticalMatchEntryDTO): HTMLElement 
   if (entry.momentum) {
     const momentumEl = createMomentumElement(entry.momentum);
     card.append(momentumEl);
+  }
+
+  // Intégrer le bloc Opponent Context / Adversaires récents si présent (DEC-035 / DEC-036 Phase 3.7)
+  if (entry.opponentContext) {
+    const opponentContextEl = createOpponentContextElement(entry.opponentContext);
+    card.append(opponentContextEl);
   }
 
   return card;
