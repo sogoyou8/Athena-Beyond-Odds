@@ -3,11 +3,14 @@ import {
   ListScheduledMatchesUseCase,
   CompetitionNotAvailableError,
 } from '../../src/application/use-cases/list-scheduled-matches.js';
-import { InMemorySportsDataProvider } from '../../src/infrastructure/providers/in-memory/in-memory-sports-data-provider.js';
+import {
+  InMemorySportsDataProvider,
+  IN_MEMORY_REFERENCE_NOW,
+} from '../../src/infrastructure/providers/in-memory/in-memory-sports-data-provider.js';
 
 describe('ListScheduledMatchesUseCase', () => {
   const provider = new InMemorySportsDataProvider();
-  const useCase = new ListScheduledMatchesUseCase(provider);
+  const useCase = new ListScheduledMatchesUseCase(provider, () => IN_MEMORY_REFERENCE_NOW);
 
   describe('execute("FL1")', () => {
     it('returns an object with competitionCode equal to "FL1"', async () => {

@@ -107,6 +107,21 @@ const TEAM_ZETA = {
 export const IN_MEMORY_SEASON_ID = 'season-fl1-2099';
 export const IN_MEMORY_COMPETITION_ID = 'comp-fl1';
 
+/**
+ * Référence temporelle déterministe du dataset de développement InMemory.
+ *
+ * Cette constante représente le « maintenant » cohérent avec les fixtures 2099.
+ * Elle est utilisée uniquement pour le wiring local (mode in-memory) afin d'injecter
+ * une horloge déterministe dans ListScheduledMatchesUseCase et ListAnalyticalMatchesUseCase.
+ *
+ * Choisie antérieure aux 3 fixtures SCHEDULED (2099-08-14 / 15 / 16) et dans la
+ * fenêtre de 7 jours qui les contient : [2099-08-10, 2099-08-17].
+ *
+ * NE constitue PAS une règle de début de saison.
+ * NE constitue PAS un paramètre business.
+ */
+export const IN_MEMORY_REFERENCE_NOW = new Date('2099-08-10T12:00:00.000Z');
+
 // ---------------------------------------------------------------------------
 // Score vide (matchs programmés — aucun résultat encore)
 // ---------------------------------------------------------------------------
@@ -433,23 +448,14 @@ export class InMemorySportsDataProvider implements SportsDataProvider {
 
     let matches = [...FL1_ALL_MATCHES];
 
-    // Si des bornes sont fournies, filtrer par date.
-    // Pour supporter les données statiques (2099), si la plage [fromDate, toDate] est antérieure
-    // aux données statiques (ex: date réelle d'exécution), on ne filtre pas à vide si aucune donnée ne correspond
-    // afin de préserver le déterminisme des tests d'intégration sans horloge mockée.
-    if (fromDate !== undefined && toDate !== undefined) {
-      const filtered = matches.filter((m) => m.utcDate >= fromDate && m.utcDate <= toDate);
-      // Si la plage explicite correspond à des matchs statiques réels (ex: tests avec dates 2099), l'utiliser
-      if (filtered.length > 0) {
-        matches = filtered;
-      }
-    } else {
-      if (fromDate !== undefined) {
-        matches = matches.filter((m) => m.utcDate >= fromDate);
-      }
-      if (toDate !== undefined) {
-        matches = matches.filter((m) => m.utcDate <= toDate);
-      }
+    // Filtrage temporel strict (DEC-020) :
+    // Les bornes explicites sont toujours respectées — même si le résultat est [].
+    // Aucun fallback ne substitue les fixtures hors fenêtre.
+    if (fromDate !== undefined) {
+      matches = matches.filter((m) => m.utcDate >= fromDate);
+    }
+    if (toDate !== undefined) {
+      matches = matches.filter((m) => m.utcDate <= toDate);
     }
 
     return Promise.resolve(matches);

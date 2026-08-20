@@ -8,7 +8,7 @@ import { createApp } from '../../src/app.js';
 import { SportsDataProvider } from '../../src/application/ports/sports-data-provider.js';
 import { Match } from '../../src/domain/entities/match.js';
 import { Competition } from '../../src/domain/entities/competition.js';
-import { InMemorySportsDataProvider } from '../../src/infrastructure/providers/in-memory/in-memory-sports-data-provider.js';
+import { InMemorySportsDataProvider, IN_MEMORY_REFERENCE_NOW } from '../../src/infrastructure/providers/in-memory/in-memory-sports-data-provider.js';
 
 describe('GET /competitions/FL1/matches/analysis (Form 5)', () => {
   const app = createApp();
@@ -82,7 +82,9 @@ describe('GET /competitions/FL1/matches/analysis (Form 5)', () => {
       },
     };
 
-    const testApp = createApp(spyProvider);
+    const testApp = createApp(spyProvider, {
+      clockFn: () => IN_MEMORY_REFERENCE_NOW,
+    });
 
     await request(testApp)
       .get('/competitions/FL1/matches/analysis')
@@ -124,7 +126,9 @@ describe('GET /competitions/FL1/matches/analysis (Form 5)', () => {
       },
     };
 
-    const testApp = createApp(failingHistoricalProvider);
+    const testApp = createApp(failingHistoricalProvider, {
+      clockFn: () => IN_MEMORY_REFERENCE_NOW,
+    });
 
     const res = await request(testApp)
       .get('/competitions/FL1/matches/analysis')

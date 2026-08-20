@@ -19,7 +19,10 @@ import {
   ProviderUnavailableError,
 } from '../../application/errors/index.js';
 
-export function createMatchesRouter(provider: SportsDataProvider): Router {
+export function createMatchesRouter(
+  provider: SportsDataProvider,
+  clockFn?: () => Date
+): Router {
   const router = Router();
 
   router.get(
@@ -28,7 +31,7 @@ export function createMatchesRouter(provider: SportsDataProvider): Router {
       const { competitionCode } = req.params;
 
       try {
-        const useCase = new ListScheduledMatchesUseCase(provider);
+        const useCase = new ListScheduledMatchesUseCase(provider, clockFn);
         const result = await useCase.execute(competitionCode as string);
 
         res.status(200).json(result);
