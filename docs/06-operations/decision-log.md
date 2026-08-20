@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.9
+> **Version :** 2.10
 
 # Decision Log
 
@@ -1217,3 +1217,25 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 8. **DEC-030.8 — Optimisation locale d'Application :** Indexation locale en mémoire par équipe (`Map<TeamId, Match[]>`) scoped à la requête dans le use case, sans persistance ni impact sur Form/SeasonStrength/H2H.
 9. **DEC-030.9 — Frontend et UI :** Bloc « Repos & congestion » factuel par carte. Mention explicite « Charge dans cette compétition ». Aucune terminologie physiologique, aucune jauge, aucun score synthétique. 9 états globaux inchangés.
 10. **DEC-030.10 — Non-régression et suites :** 53 scénarios de test d'implémentation spécifiés (Domaine, Application, Provider, Frontend). L'implémentation logicielle fera l'objet d'une autorisation formelle séparée après fusion de DEC-030.
+
+---
+
+## DEC-031 — Phase 3.5 — Clôture de Repos & Congestion
+
+- **Date :** 2026-08-20
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Document de référence :** `docs/03-technical-architecture/phase-3-5-rest-congestion-closure.md`
+
+### Résumé des validations et arbitrages de clôture DEC-031
+
+1. **DEC-031.1 — Clôture officielle de la Phase 3.5 :** La Phase 3.5 (Repos & Congestion / *Schedule Load*) est formellement et définitivement déclarée clôturée. L'ensemble des exigences fonctionnelles, architecturales et techniques de DEC-029 et DEC-030 sont satisfaites.
+2. **DEC-031.2 — Périmètre livré et composant de domaine :** `ScheduleLoadCalculator` implémenté comme service de domaine pur ($O(1)$ allocations, sans I/O, sans `Date.now()`, déterministe). DTO `ScheduleLoadProfile` avec métriques factuelles (`daysSinceLastMatch`, `matchesLast7Days`, `matchesLast14Days`, `matchesLast28Days`, `minimumRestDaysInLast14Days`, `shortRest`). Sémantique UTC 24h strictes, gestion des statuts `AVAILABLE`, `INSUFFICIENT_DATA` (sans faux zéros) et `UNAVAILABLE`.
+3. **DEC-031.3 — Port, provider et budgets réseau :** `SportsDataProvider` et `HistoryFilter` strictement inchangés. Aucun nouvel endpoint. Mutualisation intégrale du flux historique 3 saisons avec Form 5, Season Strength et H2H. Respect strict des budgets : $\le 2$ invocations logiques Application, $\le 5$ requêtes HTTP amont (hard max), 0 appel HTTP supplémentaire pour Schedule Load, complexité réseau $O(1)$ sans N+1.
+4. **DEC-031.4 — Mutualisation et non-régression :** Flux historique mutualisé alimentant les 4 briques analytiques. Non-régression prouvée sur Form 5, Season Strength et H2H. Route `/matches` strictement préservée.
+5. **DEC-031.5 — Intégration frontend et conformité UI :** Bloc visuel « Repos & congestion » intégré au Match Center avec mention explicite « Charge dans cette compétition ». Conservation des vrais zéros factuels et absence de faux zéros sur `INSUFFICIENT_DATA`. Zéro terminologie physiologique dans le DOM. 9 états globaux frontend préservés.
+6. **DEC-031.6 — Validation Chromium humaine conforme :** Validation humaine sur Google Chrome (Desktop sombre et clair, Mobile 390 × 635 px sans overflow critique, 0 erreur console fatale, 0 appel externe, polling = NO, retry automatique = NO, retry manuel = YES, restauration après blocage = PASS).
+7. **DEC-031.7 — Validation technique automatisée :** La suite complète valide 314/314 tests Vitest (26 fichiers, 0 échec, 0 désactivé), typechecks serveur et client PASS, build PASS, diff-check PASS, 0 nouvelle dépendance, 0 appel réel (`TOKEN_PRESENT=False`).
+8. **DEC-031.8 — Fusion et traçabilité Git :** PR d'implémentation #40 fusionnée par `Create a merge commit` (`d3967a6d37781eea48d2efe4c956840f0c9e80b1`), branche source `implementation/phase-3-5-rest-congestion` conservée sur le remote.
+9. **DEC-031.9 — Absence de pouvoir prédictif :** La brique Repos & Congestion reste un composant purement descriptif. Elle ne produit aucune cote, probabilité, EV, Kelly, score synthétique de fatigue ni Decision Engine.
+10. **DEC-031.10 — Suites et prochaine étape :** Aucune phase analytique ultérieure (Phase 3.6+) n'est ouverte automatiquement. La prochaine brique fera l'objet d'un cadrage et d'un arbitrage formel séparé par le Fondateur.
