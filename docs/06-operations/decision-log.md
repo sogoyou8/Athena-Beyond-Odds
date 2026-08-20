@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.11
+> **Version :** 2.12
 
 # Decision Log
 
@@ -1261,3 +1261,28 @@ DEC-019 autorise uniquement l'implémentation de Form 5 dans son périmètre dé
 8. **DEC-032.8 — Architecture cible et budgets réseau (OQ-073 à OQ-076) :** Intention de réutiliser le flux historique mutualisé 3 saisons existant sans modification de `SportsDataProvider` ni `HistoryFilter`. Budgets cibles maintenus ($\le 2$ invocations application, hard max $\le 5$ HTTP, 0 extra HTTP, complexité $O(1)$ sans N+1). `MomentumCalculator` pur et déterministe.
 9. **DEC-032.9 — Frontend cible et neutralité visuelle (OQ-078 / OQ-079) :** Bloc « Dynamique récente » par carte avec affichage du format de fenêtre (3v3, 4v4, 5v5), valeurs Avant/Récent/Écart pour PPM et GD/m. Présentation visuelle neutre (pas de colorisation binaire automatique vert/rouge sur les deltas). 9 états globaux inchangés.
 10. **DEC-032.10 — Prochaine étape :** Gate A technique obligatoire après fusion de DEC-032 pour prouver formellement que le corpus mutualisé existant supporte $\ge 10$ matchs par équipe dans la saison cible sans requête réseau additionnelle, avant tout engagement en conception technique (DEC-033).
+
+---
+
+## DEC-033 — Phase 3.6 — Conception technique de Momentum descriptif
+
+- **Date :** 2026-08-20
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Documents de référence :**
+  - `docs/03-technical-architecture/phase-3-6-momentum-technical-design.md`
+  - `docs/03-technical-architecture/phase-3-6-momentum-framing.md` (DEC-032)
+  - Gate A — Faisabilité technique Phase 3.6 (Verdict : CONFORME SANS NOUVEL APPEL PROVIDER)
+
+### Résumé des arbitrages et de la conception technique DEC-033
+
+1. **DEC-033.1 — Port et provider inchangés :** `SportsDataProvider` et `HistoryFilter` restent strictement inchangés. Aucun nouvel endpoint, aucun nouveau paramètre, aucun appel réseau provider supplémentaire.
+2. **DEC-033.2 — Corpus mutualisé et budgets réseau :** L'appel mutualisé `provider.getMatches(code, undefined, undefined, { seasonCount: 3 })` alimente conjointement Form 5, Season Strength, H2H, Repos & Congestion et Momentum. Double budget respecté : $\le 2$ invocations logiques Application, $\le 5$ requêtes HTTP amont sur cold path (Normal = 4, Fallback catalogue = 5), 0 extra HTTP pour Momentum, complexité réseau $O(1)$ sans N+1.
+3. **DEC-033.3 — Modèle et invariants `MomentumProfile` :** Types `MomentumAvailability`, `MomentumWindow` et `MomentumProfile`. Invariant `AVAILABLE` : $\text{windowSize} \in \{3, 4, 5\}$, métriques finies sans arrondi dans le domaine. Invariants `INSUFFICIENT_DATA` et `UNAVAILABLE` : tous les champs numériques à `null` (zéro faux zéro).
+4. **DEC-033.4 — Composant `MomentumCalculator` :** Service de domaine pur, synchrone, déterministe, sans I/O ni `Date.now()`. Signature standardisée `calculate(teamId, targetMatch, historicalMatches): MomentumProfile`. Immuabilité stricte des tableaux d'entrée.
+5. **DEC-033.5 — Filtrage d'éligibilité et étanchéité de saison :** Matchs `FINISHED`, même compétition, même équipe, coupure stricte `utcDate < targetMatch.utcDate`, score `fullTime` complet requis. Étanchéité stricte : `TARGET_SEASON_ONLY` (aucun carryover N-1, N-1 et N-2 exclus). Moins de 6 matchs éligibles $\implies$ `INSUFFICIENT_DATA`.
+6. **DEC-033.6 — Tri déterministe et découpage adaptatif :** Tri `utcDate DESC`, tie-break `Match.id DESC`. Découpage en 2 fenêtres adjacentes d'égale taille sans chevauchement : `recent [0..W[` et `previous [W..2W[` avec `W = min(5, floor(N / 2))`.
+7. **DEC-033.7 — Métriques et deltas descriptifs :** Calcul par fenêtre des points football (Win=3, Draw=1, Loss=0), `pointsPerMatch`, `goalsForPerMatch`, `goalsAgainstPerMatch`, `goalDifferencePerMatch`. Deltas descriptifs : `pointsPerMatchDelta` et `goalDifferencePerMatchDelta`. Zéro score composite, zéro classification `UP`/`DOWN`.
+8. **DEC-033.8 — Optimisation et intégration Application :** Réutilisation de l'index request-scoped `historyByTeam: Map<string, Match[]>` dans `ListAnalyticalMatchesUseCase`. Enrichissement du DTO sous `/analysis` avec le nœud `momentum`. Route `/matches` inchangée. Dégradation locale propre vers `UNAVAILABLE` en cas d'échec du flux historique.
+9. **DEC-033.9 — Frontend et neutralité visuelle :** Bloc « Dynamique récente » par carte avec affichage du format de fenêtre (3v3, 4v4, 5v5), valeurs Avant/Récent/Écart formatées à 2 décimales. Normalisation anti-`-0.00`. Présentation neutre (pas de couleur vert/rouge sur les deltas). 9 états globaux inchangés.
+10. **DEC-033.10 — Plan de validation et suites :** 30 scénarios de tests unitaires spécifiés, tests d'intégration `/analysis` et tests de rendu frontend. L'implémentation logicielle fera l'objet d'une autorisation formelle séparée après fusion de DEC-033.
