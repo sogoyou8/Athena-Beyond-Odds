@@ -337,6 +337,24 @@ export function createSeasonStrengthElement(profile: SeasonStrengthProfileDTO): 
 }
 
 /**
+ * Formate une date ISO UTC au format court français "JJ/MM/AAAA".
+ */
+function formatShortDate(isoString: string): string {
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+  } catch {
+    return '';
+  }
+}
+
+/**
  * Crée l'élément UI d'un segment H2H (Overall ou SAME_VENUE).
  */
 function createHeadToHeadSegmentElement(label: string, segment: HeadToHeadSegmentDTO): HTMLElement {
@@ -388,11 +406,35 @@ function createHeadToHeadSegmentElement(label: string, segment: HeadToHeadSegmen
 
   el.append(stats);
 
+  // Métadonnées : période historique et saisons couvertes
+  const metaContainer = document.createElement('div');
+  metaContainer.className = 'h2h-meta-row';
+
+  if (segment.oldestMeetingDate && segment.latestMeetingDate) {
+    const oldestStr = formatShortDate(segment.oldestMeetingDate);
+    const latestStr = formatShortDate(segment.latestMeetingDate);
+
+    if (oldestStr && latestStr) {
+      const periodEl = document.createElement('span');
+      periodEl.className = 'h2h-period';
+      if (oldestStr === latestStr) {
+        periodEl.textContent = oldestStr;
+      } else {
+        periodEl.textContent = `${oldestStr} → ${latestStr}`;
+      }
+      metaContainer.append(periodEl);
+    }
+  }
+
   if (segment.seasonsCovered !== null && segment.seasonsCovered > 0) {
-    const coverage = document.createElement('div');
+    const coverage = document.createElement('span');
     coverage.className = 'h2h-seasons-covered';
     coverage.textContent = `${segment.seasonsCovered} saison${segment.seasonsCovered > 1 ? 's' : ''} couverte${segment.seasonsCovered > 1 ? 's' : ''}`;
-    el.append(coverage);
+    metaContainer.append(coverage);
+  }
+
+  if (metaContainer.childNodes.length > 0) {
+    el.append(metaContainer);
   }
 
   return el;

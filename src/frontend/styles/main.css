@@ -329,6 +329,82 @@ body {
   font-style: italic;
 }
 
+/* Head-to-Head (Phase 3.4) */
+.h2h-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.625rem;
+  margin-top: 0.75rem;
+  background-color: var(--color-bg-base);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.h2h-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.h2h-segment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.h2h-segment-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-base);
+}
+
+.h2h-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 0.625rem;
+}
+
+.h2h-stat-item {
+  font-size: 0.75rem;
+  display: inline-flex;
+  gap: 0.125rem;
+}
+
+.h2h-stat-label {
+  color: var(--color-text-muted);
+}
+
+.h2h-stat-value {
+  font-weight: 600;
+  color: var(--color-text-base);
+}
+
+.h2h-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+
+.h2h-period {
+  font-weight: 500;
+}
+
+.h2h-seasons-covered {
+  font-style: italic;
+}
+
+.h2h-segment-status {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+
 /* États UI */
 .state-container {
   padding: 3rem 1.5rem;

@@ -258,4 +258,76 @@ describe('createHeadToHeadElement — DEC-027 Frontend Rendering', () => {
     const contextualEl = el.querySelector('.h2h-contextual');
     expect(contextualEl?.textContent).toContain('Même config. de terrain');
   });
+
+  it('10. Rendu AVAILABLE multi-date : affiche la période oldestDate → latestDate', () => {
+    // Dates : 2025-10-01T20:00:00.000Z -> 2026-03-01T20:00:00.000Z
+    const profile = makeAvailableProfile();
+    const el = createHeadToHeadElement(profile);
+
+    const overallEl = el.querySelector('.h2h-overall');
+    expect(overallEl?.textContent).toContain('01/10/2025 → 01/03/2026');
+  });
+
+  it('11. Rendu AVAILABLE single-date : affiche une seule date (pas de flèche)', () => {
+    const profile: HeadToHeadProfileDTO = {
+      overall: {
+        availability: 'AVAILABLE',
+        sampleSize: 1,
+        homeTeam: { teamId: 't1', wins: 1, draws: 0, losses: 0, goalsFor: 2, goalsAgainst: 0, goalDifference: 2 },
+        awayTeam: { teamId: 't2', wins: 0, draws: 0, losses: 1, goalsFor: 0, goalsAgainst: 2, goalDifference: -2 },
+        latestMeetingDate: '2099-07-28T18:00:00.000Z',
+        oldestMeetingDate: '2099-07-28T18:00:00.000Z',
+        seasonsCovered: 1,
+      },
+      contextual: {
+        venue: 'SAME_VENUE',
+        segment: {
+          availability: 'AVAILABLE',
+          sampleSize: 1,
+          homeTeam: { teamId: 't1', wins: 1, draws: 0, losses: 0, goalsFor: 2, goalsAgainst: 0, goalDifference: 2 },
+          awayTeam: { teamId: 't2', wins: 0, draws: 0, losses: 1, goalsFor: 0, goalsAgainst: 2, goalDifference: -2 },
+          latestMeetingDate: '2099-07-28T18:00:00.000Z',
+          oldestMeetingDate: '2099-07-28T18:00:00.000Z',
+          seasonsCovered: 1,
+        },
+      },
+    };
+
+    const el = createHeadToHeadElement(profile);
+    const overallEl = el.querySelector('.h2h-overall');
+    expect(overallEl?.textContent).toContain('28/07/2099');
+    expect(overallEl?.textContent).not.toContain('→');
+  });
+
+  it('12. INSUFFICIENT_DATA et UNAVAILABLE : aucune date ni "Invalid Date" affichée', () => {
+    const profile: HeadToHeadProfileDTO = {
+      overall: {
+        availability: 'INSUFFICIENT_DATA',
+        sampleSize: 0,
+        homeTeam: null,
+        awayTeam: null,
+        latestMeetingDate: null,
+        oldestMeetingDate: null,
+        seasonsCovered: 0,
+      },
+      contextual: {
+        venue: 'SAME_VENUE',
+        segment: {
+          availability: 'UNAVAILABLE',
+          sampleSize: null,
+          homeTeam: null,
+          awayTeam: null,
+          latestMeetingDate: null,
+          oldestMeetingDate: null,
+          seasonsCovered: null,
+        },
+      },
+    };
+
+    const el = createHeadToHeadElement(profile);
+    expect(el.textContent).not.toContain('Invalid Date');
+    expect(el.textContent).not.toContain('null');
+    expect(el.textContent).not.toContain('undefined');
+    expect(el.textContent).not.toContain('→');
+  });
 });
