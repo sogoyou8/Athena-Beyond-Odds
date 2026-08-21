@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.16
+> **Version :** 2.17
 
 # Decision Log
 
@@ -1366,3 +1366,48 @@ La version 2.13 du Decision Log (commit direct `9fc1b03` sur la branche principa
 8. **DEC-036.8 — Intégration Application & Dégradation gracieuse :** `ListAnalyticalMatchesUseCase` enrichit `AnalyticalMatchEntry` d'un champ `opponentContext` (home et away). En cas d'échec du flux historique, dégradation gracieuse locale vers `UNAVAILABLE` avec maintien du code HTTP 200 et du service des matchs programmés.
 9. **DEC-036.9 — Frontend et intégration visuelle :** Bloc « Adversaires récents » placé immédiatement après « Dynamique récente » (Momentum). Rendu factuel et neutre avec 2 décimales, gestion des vrais zéros, mentions `Données insuffisantes` et `Indisponible`. Interdiction absolue de scores de difficulté, badges qualificatifs ou colorisations subjectives. Maintien strict des 9 états globaux frontend.
 10. **DEC-036.10 — Périmètre de tests et budget fichiers :** Budget prévisionnel de 8 à 10 fichiers (2 value objects/services neufs, 1 use case modifié, 2 fichiers frontend modifiés, 3 suites de tests unitaires/intégration/frontend). Fixtures InMemory existantes jugées suffisantes sans modification. Validation humaine sous Chromium obligatoire après implémentation.
+
+---
+
+## DEC-037 — Phase 3.7 — Clôture Opponent Context / Contexte d'adversité
+
+- **Date :** 2026-08-21
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Documents de référence :**
+  - `docs/03-technical-architecture/phase-3-7-opponent-context-closure.md` (DEC-037)
+  - `docs/03-technical-architecture/phase-3-7-opponent-context-technical-design.md` (DEC-036)
+  - `docs/03-technical-architecture/phase-3-7-opponent-context-framing.md` (DEC-035)
+  - PR #48 (`implementation/phase-3-7-opponent-context`, merge `965686ff21d376a147f27bb62858b33b9b31d65b`)
+  - Validation Chromium humaine du 2026-08-21 (Conforme)
+
+### 1. Objet et clôture formelle
+Cette décision formalise la clôture technique, fonctionnelle et documentaire de la Phase 3.7 « Opponent Context / Contexte d'adversité » (nom UI : « Adversaires récents »), sixième brique analytique descriptive du Match Center d'ATHENA.
+
+### 2. Synthèse de l'implémentation et des contrats livrés
+1. **Service Domaine pur :** `OpponentContextCalculator` (pur, synchrone, déterministe, zéro I/O, sans `Date.now()`, sans mutation), `OpponentContextProfile`, `OpponentContextEntry`, `OpponentContextMetrics`.
+2. **Règles métier :** Maximum 5 rencontres récentes (`FINISHED`, score `fullTime` non nul, même compétition, même saison, cutoff strict `utcDate < targetMatch.utcDate`), tri déterministe sur copie. Profils adversaires overall et contextuels (venue HOME/AWAY) évalués à la date du match cible, rencontre récente incluse dans le profil.
+3. **Disponibilité & Pondération :** Seuil de disponibilité `AVAILABLE` basé sur $\ge 3$ adversaires **DISTINCTS** (`evaluatedOpponentSampleSize = Set(opponentTeamId).size >= 3`). Agrégats pondérés par rencontre récente (`MATCH_ENTRY_WEIGHTING`). Préservation des vrais zéros (`0.00` sans signe `+` ou `-`), nullabilité en `INSUFFICIENT_DATA` et `UNAVAILABLE`.
+4. **Architecture & Budgets :** Flux historique partagé réutilisé sans modification de `SportsDataProvider` ni `HistoryFilter`. 0 appel Application et 0 requête HTTP supplémentaire. Hard max HTTP $\le 5$, complexité réseau $O(1)$. Endpoint `/analysis` enrichi, route `/matches` inchangée.
+
+### 3. Traçabilité de la gouvernance
+La PR #48 a été fusionnée avant l'audit pré-fusion prévu. L'écart a été consigné de manière transparente (`PRE_MERGE_IMPLEMENTATION_AUDIT_OMITTED = YES`, `RETROSPECTIVE_IMPLEMENTATION_AUDIT = PASS`, `GOVERNANCE_DEVIATION = NON_BLOCKING`). L'audit rétrospectif et post-fusion a confirmé la parfaite conformité des 8 fichiers, des tests (357/357) et l'absence totale de real-call.
+
+### 4. Validation technique, Golden et Chromium
+- **Tests automatisés :** 28 fichiers de tests, **357/357 tests passants** (+21 tests ajoutés), 0 échec, 0 test désactivé. Typechecks serveur/client et build au vert, 0 real-call.
+- **Validation Golden InMemory :** Valeurs exactes vérifiées sur `/competitions/FL1/matches/analysis` (Alpha FC, Beta United, Gamma City, Delta Athletic avec vrai zéro `0.00`, Epsilon SC avec 4 matchs, Zeta Rovers avec `INSUFFICIENT_DATA`).
+- **Validation Chromium humaine :** Desktop Dark/Light, Mobile 390×635 (aucun overflow critique), console propre (0 fatal JS, 0 exception), réseau local sans polling (30s), résilience sur blocage `/analysis` avec retry manuel et restauration complète confirmée (`RESTORATION_AFTER_BLOCK = PASS`).
+- **Non-régression des 5 briques :** Form 5, Season Strength, H2H contextualisé, Repos & Congestion, Dynamique récente intacts.
+- **Réserve UX mineure non bloquante :** `MOBILE_DETAIL_DENSITY = MINOR_NON_BLOCKING` (densité visuelle de la ligne de détail sur mobile sans perte de données ni bug fonctionnel), réservée pour une passe UX globale ultérieure.
+
+### 5. Socle analytique ATHENA (6 briques descriptives)
+Le Match Center intègre désormais 6 briques analytiques purement descriptives, explicables et sans prédiction :
+1. Form 5
+2. Season Strength
+3. H2H contextualisé
+4. Repos & Congestion
+5. Momentum / Dynamique récente
+6. Opponent Context / Adversaires récents
+
+### 6. Statut
+La Phase 3.7 est officiellement **CLOSE**. L'arbitrage de la prochaine étape (Phase 3.8) fera l'objet d'une décision séparée.
