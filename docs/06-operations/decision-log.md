@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.19
+> **Version :** 2.20
 
 # Decision Log
 
@@ -1601,3 +1601,263 @@ LEAGUE_CONTEXT_GATE_A_RERUN_REQUIRED=YES
 DEC-039 est exclusivement un cadrage correctif. Elle n'autorise aucune correction de code, aucune modification du cache, de l'adapter football-data.org, du port, de `HistoryFilter` ou du domaine, aucune création de `LeagueContextCalculator` et aucune conception technique corrective.
 
 Après ouverture de la PR documentaire DEC-039, la prochaine étape autorisée est exclusivement son audit pré-fusion. Aucun merge automatique n'est autorisé.
+
+---
+
+## DEC-040 — Phase 3.8 corrective prerequisite — Conception technique Historical Corpus Integrity / Intégrité du corpus historique
+
+- **Date :** 2026-08-21
+- **Responsable :** Fondateur ABYSS
+- **Statut :** APPROUVÉE
+- **Nature :** `CORRECTIVE_TECHNICAL_DESIGN`
+- **Statut Phase 3.8 League Context :** `FROZEN_PENDING_CORRECTION`
+- **Document de référence :**
+  - `docs/03-technical-architecture/phase-3-8-historical-corpus-integrity-technical-design.md`
+- **Références :**
+  - DEC-039 ;
+  - Gate A correctif Historical Corpus Integrity — verdict GREEN ;
+  - CR-001 à CR-012 ;
+  - CGA-001 à CGA-008 ;
+  - CTA-001 à CTA-012.
+
+### DEC-040.1 — Autorité et résultat du Gate correctif
+
+DEC-039 est fusionnée et auditée post-fusion. Le Gate A correctif Historical Corpus Integrity est conforme et autorise la conception corrective.
+
+La documentation officielle football-data.org v4 est acceptée par CGA-001 comme preuve statique du contrat provider pour `season.id`, `season.startDate`, `season.endDate`, `currentSeason`, `seasons[]` et la sémantique de `?season=YYYY` comme année de début de saison.
+
+```text
+HISTORICAL_CORPUS_INTEGRITY_GATE_A=GREEN
+CR_001_TO_012=APPROVED
+CGA_001_TO_008=APPROVED
+CTA_001_TO_012=APPROVED
+REAL_CALLS=0
+```
+
+DEC-040 définit exclusivement la conception technique corrective. Elle n'autorise aucune implémentation.
+
+### DEC-040.2 — Structure et ordre des lots
+
+Le chantier conserve un seul workstream transversal et deux lots atomiques dans deux futures PR distinctes :
+
+1. Lot A — `CACHE_HISTORY_TRANSPARENCY` ;
+2. Lot B — `SPORTS_SEASON_IDENTITY`.
+
+Le Lot A devra être implémenté, audité, fusionné et audité post-fusion avant le Lot B. Chacun exigera une autorisation explicite ultérieure du Fondateur.
+
+```text
+CORRECTIVE_STRUCTURE=ONE_TRANSVERSAL_CORRECTIVE_WORKSTREAM_TWO_ATOMIC_LOTS
+LOT_A_FIRST=YES
+LOT_A_IMPLEMENTATION_PR_SEPARATE=YES
+LOT_B_IMPLEMENTATION_PR_SEPARATE=YES
+```
+
+### DEC-040.3 — Lot A : signature complète et classification des modes
+
+`InMemoryCache` devra adopter la signature complète actuelle de `SportsDataProvider`, quatrième argument `HistoryFilter` inclus, puis transmettre les quatre arguments au provider enveloppé sans les modifier.
+
+La présence de `HistoryFilter`, y compris `{}`, a priorité : elle sélectionne `HISTORY` avec conservation de toutes les dates éventuellement présentes. Sans filtre, deux dates sélectionnent `RANGE`, aucune date sélectionne `CURRENT_SEASON` et une seule borne déclenche un bypass sans cache.
+
+```text
+SPORTS_DATA_PROVIDER_CHANGE_REQUIRED=NO
+HISTORY_FILTER_CHANGE_REQUIRED=NO
+CURRENT_SEASON_DATE_SYNTHESIS=NO
+CURRENT_SEASON_PROVIDER_NATIVE_SEMANTICS=YES
+MIXED_DATES_PLUS_FILTER_POLICY=HISTORY_NAMESPACE_FORWARD_ALL_ARGUMENTS_UNCHANGED
+ONE_BOUND_RANGE_CACHE_POLICY=BYPASS
+ONE_BOUND_WITHOUT_HISTORY_FILTER_CACHE_POLICY=BYPASS
+```
+
+### DEC-040.4 — Lot A : namespaces et clés canoniques
+
+Les namespaces obligatoires sont `range`, `current-season` et `history`.
+
+- `range` encode `competitionCode` et les deux bornes au jour UTC ;
+- `current-season` encode `competitionCode` sans inventer de date ;
+- `history` encode `competitionCode`, la présence et les instants UTC exacts des bornes éventuelles, la présence du filtre, `seasonCount` et `seasonIds`.
+
+Les payloads de clé sont structurés, déterministes et correctement échappés. La clé history distingue les propriétés absentes des propriétés vides. Elle conserve l'ordre et les doublons de `seasonIds`, sans tri, `Set` ou déduplication. Si `seasonCount` et `seasonIds` coexistent, les deux valeurs sont encodées.
+
+```text
+CACHE_NAMESPACES=range,current-season,history
+CACHE_KEY_HISTORY_FILTER_AWARE=YES
+CACHE_MODE_COLLISION_FORBIDDEN=YES
+RANGE_DATE_KEY_GRANULARITY=UTC_DAY
+HISTORY_DATE_KEY_GRANULARITY=EXACT_UTC_INSTANT
+SEASON_IDS_CACHE_ORDER_POLICY=PRESERVE
+SEASON_IDS_CACHE_DUPLICATE_POLICY=PRESERVE
+```
+
+### DEC-040.5 — Lot A : TTL, déduplication, erreurs et télémétrie
+
+Le cache conserve son TTL unique, sa valeur par défaut `600_000 ms`, le cache de tous les succès y compris `[]`, l'absence de cache des erreurs, l'interdiction de stale-on-error, la déduplication `in-flight` par clé et le nettoyage dans `finally`.
+
+La télémétrie cache devra devenir une union discriminée par le champ obligatoire `cacheMode`, dont les valeurs sont `range`, `current-season` et `history`. Elle représentera uniquement les dates réellement reçues, sans fabriquer de bornes. `cache_bypass` est réservé au mode `range` avec une borne sans filtre ; aucun appel portant un `HistoryFilter` ne peut produire cet événement. Elle n'exposera ni clé canonique complète, ni filtre brut, ni tableau brut `seasonIds`, ni donnée sensible. La télémétrie provider reste inchangée.
+
+```text
+TTL_CHANGE_REQUIRED=NO
+DEDUP_CHANGE_REQUIRED=NO
+DEFAULT_TTL_MS=600000
+ERROR_CACHE_POLICY_CHANGE_REQUIRED=NO
+CACHE_TELEMETRY_CHANGE_REQUIRED=YES
+CACHE_TELEMETRY_MODE_FIELD=cacheMode
+CACHE_TELEMETRY_MODE_VALUES=range,current-season,history
+CACHE_TELEMETRY_DATE_POLICY=ONLY_ACTUAL_ARGUMENTS
+CACHE_BYPASS_MODE_VALUES=range
+PROVIDER_TELEMETRY_CHANGE_REQUIRED=NO
+```
+
+### DEC-040.6 — Lot B : schéma provider et identité domaine
+
+Les types privés football-data.org devront modéliser `season` sur chaque match et `currentSeason` plus `seasons[]` sur le catalogue. Une représentation interne validée séparera l'identité domaine, la `startDate`, la start year provider et l'éventuelle `endDate`.
+
+Après validation runtime, le mapping normatif est :
+
+```typescript
+Match.seasonId = String(raw.season.id);
+```
+
+Toute dérivation depuis `utcDate`, l'année civile, la query year ou l'année courante est interdite. `season.endDate` peut être modélisée mais n'est pas requise par l'algorithme correctif v1.
+
+```text
+DOMAIN_SEASON_ID_SOURCE=RAW_SEASON_ID
+DOMAIN_SEASON_ID_STRING_MAPPING=String(raw.season.id)
+SEASON_END_DATE_REQUIRED_FOR_CORRECTIVE_ALGORITHM=NO
+```
+
+### DEC-040.7 — Lot B : validation et échec contrôlé
+
+La validation runtime exige un objet saison et un ID provider qui soit un nombre entier fini ou une chaîne non vide sur tout match mappé ; toute autre forme, notamment booléen, `null`, objet ou tableau, est rejetée. Une identité validée suffit au mapping d'un match. Toute saison catalogue consommée passe par un validateur distinct et exige une `startDate` ISO civile valide, dont l'année de début est extraite en sémantique UTC. Les deux validateurs reçoivent la valeur saison comme `unknown` ; aucune assertion ne peut promouvoir une identité seule en saison catalogue validée.
+
+Le type d'erreur existant retenu pour les métadonnées saison invalides, le catalogue invalide, l'ancre `currentSeason` absente ou ambiguë et un ID demandé absent est `ProviderUnavailableError`.
+
+Ce choix conserve la taxonomie exécutable actuelle de l'adapter et la réponse publique `503 / PROVIDER_UNAVAILABLE`. `ProviderDataMappingError`, actuellement inutilisé et non traduit par les routes, n'est pas activé. Aucun nouveau type d'erreur n'est créé.
+
+Aucun fallback depuis `utcDate`, une année courante, un suffixe ou une valeur fabriquée n'est autorisé. Les messages sont statiques et contrôlés, sans payload provider brut.
+
+```text
+EXACT_PROVIDER_ERROR_TYPE_SELECTED=ProviderUnavailableError
+INVALID_SEASON_METADATA_POLICY=CONTROLLED_PROVIDER_FAILURE
+CURRENT_SEASON_CATALOG_MISMATCH=CONTROLLED_PROVIDER_FAILURE
+MISSING_CATALOG_SEASON_ID_POLICY=CONTROLLED_PROVIDER_FAILURE
+PARTIAL_RESULT_ON_PROVIDER_METADATA_ERROR=NO
+```
+
+### DEC-040.8 — Lot B : catalogue nominal et `seasonCount`
+
+Pour `HistoryFilter.seasonCount = K`, avec `K >= 1`, le catalogue compétition devient nominal :
+
+1. effectuer une requête catalogue sans requête current-season préalable ;
+2. valider `currentSeason` et `seasons[]` ;
+3. relier l'ancre par `String(currentSeason.id)` ;
+4. ordonner les saisons réelles par `startDate` décroissante ;
+5. sélectionner l'ancre puis jusqu'à `K - 1` saisons réellement plus anciennes ;
+6. extraire l'année de début de chaque `startDate` ;
+7. appeler `?season=YYYY` une fois par saison sélectionnée ;
+8. mapper chaque match depuis son propre `raw.season.id`.
+
+Aucune saison n'est fabriquée par soustraction arithmétique. Si moins de K saisons réelles sont disponibles, seules les saisons disponibles sont demandées et retournées. Une ancre absente ou ambiguë provoque un échec contrôlé avant toute requête saisonnière.
+
+```text
+CURRENT_SEASON_ANCHOR=CATALOG_CURRENT_SEASON_ID
+PROVIDER_SEASON_START_YEAR_SOURCE=RESOLVED_CATALOG_SEASON_START_DATE
+SEASON_COUNT_SELECTION_ALGORITHM=CATALOG_REAL_SEASONS_FROM_CURRENT_ID_ORDERED_BY_STARTDATE
+FEWER_THAN_REQUESTED_SEASONS=RETURN_AVAILABLE_REAL_SEASONS_UP_TO_LIMIT
+INITIAL_NATIVE_CURRENT_SEASON_MATCH_FETCH=NO
+```
+
+### DEC-040.9 — Lot B : résolution de `seasonIds`
+
+`HistoryFilter.seasonIds` reste provider-neutral et opaque. L'adapter charge une fois le catalogue, construit un index par `String(catalogSeason.id)` et pré-résout la séquence complète avant toute requête saisonnière.
+
+Chaque occurrence suit exclusivement :
+
+```text
+String(catalogSeason.id)
+-> catalogSeason.startDate
+-> provider ?season=YYYY
+```
+
+Un ID absent provoque `ProviderUnavailableError` sans résultat partiel. L'ordre et les doublons sont conservés dans le résultat observable de l'adapter football-data.org. Une déduplication physique des téléchargements est optionnelle seulement si ce résultat reste strictement identique. Aucun plafond de longueur n'est introduit.
+
+Une liste `seasonIds` non vide garde la priorité lorsqu'elle coexiste avec `seasonCount`. Un futur caller Application utilisant une liste arbitraire exigera un Gate budget dédié.
+
+```text
+SEASON_IDS_PROVIDER_NEUTRAL=YES
+SEASON_IDS_PARSE_AS_YEAR_ALLOWED=NO
+SEASON_IDS_ORDER_POLICY=PRESERVE
+SEASON_IDS_DUPLICATE_POLICY=PRESERVE
+SEASON_IDS_LENGTH_CAP=NONE
+CURRENT_APPLICATION_SEASON_IDS_CALLERS=0
+FUTURE_APPLICATION_SEASON_IDS_USAGE_REQUIRES_BUDGET_GATE=YES
+```
+
+### DEC-040.10 — Consommateurs et budget réseau
+
+`DOMAIN_SEASON_ID` et `PROVIDER_SEASON_START_YEAR` restent deux concepts distincts. H2H traite les IDs comme opaques ; Schedule Load ne les parse pas et conserve sa résolution locale N-1 et son carryover 28 jours. Les calculators `TARGET_SEASON_ONLY` bénéficient de l'identité stable sans changement métier.
+
+Le budget est borné au flux Application actuel :
+
+```text
+APPLICATION_PROVIDER_INVOCATIONS_MAX=2
+HISTORY_PROVIDER_INVOCATIONS=1
+SCHEDULED_HTTP_MAX=1
+CATALOG_HTTP_MAX=1
+HISTORY_SEASON_HTTP_MAX=3
+HTTP_HARD_MAX_CURRENT_APPLICATION_FLOW=5
+N_PLUS_ONE=NO
+PER_TEAM_NETWORK=NO
+PER_TARGET_MATCH_NETWORK=NO
+```
+
+La stratégie catalogue nominale remplace, pour le futur chemin corrigé, l'ancienne distinction normal/fallback. Les décisions historiques ne sont pas réécrites.
+
+### DEC-040.11 — Validation future
+
+Le Lot A devra tester la signature complète, la propagation par identité, tous les modes et combinaisons de dates, les cas from-only/to-only avec filtre dans `HISTORY`, les namespaces, les collisions, les contenus distincts, l'ordre et les doublons de `seasonIds`, la granularité UTC, le TTL, les succès `[]`, les erreurs, la déduplication, le nettoyage `in-flight` et chaque événement télémétrique mode-aware sans fuite.
+
+Le Lot B devra tester le schéma saison, les erreurs contrôlées, `String(raw.season.id)`, les cas cross-year, le catalogue, `seasonCount` 1/2/3, les saisons non contiguës, les catalogues incomplets, les mismatches, les IDs opaques, leur ordre et leurs doublons, les comptes HTTP et les consommateurs domaine.
+
+Après les deux lots, un test local composé obligatoire :
+
+```text
+Application
+-> InMemoryCache
+-> controlled / recording SportsDataProvider
+```
+
+devra prouver la séparation scheduled/history, la propagation exacte du filtre, deux appels Application maximum et l'absence de N+1. Les tests adapter contrôleront séparément le mapping football-data.org simulé. `REAL_CALLS=0`.
+
+Les estimations sont `3_TO_5` fichiers pour le Lot A et `3_TO_4` pour le Lot B ; elles ne constituent pas des contrats durs.
+
+### DEC-040.12 — Exclusions, gouvernance et gel
+
+Aucun changement structurel n'est requis ou autorisé par cette décision :
+
+```text
+SPORTS_DATA_PROVIDER_CHANGE_REQUIRED=NO
+HISTORY_FILTER_CHANGE_REQUIRED=NO
+DOMAIN_CHANGE_REQUIRED=NO
+NEW_ENDPOINT_REQUIRED=NO
+FRONTEND_CHANGE_REQUIRED=NO
+NEW_DEPENDENCY_REQUIRED=NO
+PACKAGE_JSON_CHANGE_REQUIRED=NO
+PACKAGE_LOCK_CHANGE_REQUIRED=NO
+SQLITE_REQUIRED=NO
+PERSISTENCE_REQUIRED=NO
+GLOBAL_CACHE_REQUIRED=NO
+```
+
+DEC-040 n'autorise ni code, ni test d'implémentation, ni Lot A, ni Lot B, ni reprise de League Context. Après ouverture de sa PR documentaire, la prochaine étape exclusive est son audit pré-fusion. Après fusion et audit post-fusion, le Lot A exigera encore une autorisation explicite du Fondateur.
+
+Après les deux lots et leurs audits, l'ordre obligatoire sera : validation composée locale, puis baseline complète, puis réexécution depuis zéro du Gate A Phase 3.8 League Context. League Context restera gelé jusque-là.
+
+```text
+DEC_040_IMPLEMENTATION_AUTHORIZATION=NO
+LOT_A_IMPLEMENTATION_AUTHORIZATION=NO
+LOT_B_IMPLEMENTATION_AUTHORIZATION=NO
+LEAGUE_CONTEXT_STATUS=FROZEN_PENDING_CORRECTION
+LEAGUE_CONTEXT_GATE_A_RERUN_REQUIRED=YES
+HISTORICAL_DECISIONS_REWRITTEN=NO
+NEXT_EXCLUSIVE_STEP=AUDIT_PRE_MERGE_DEC_040
+```
