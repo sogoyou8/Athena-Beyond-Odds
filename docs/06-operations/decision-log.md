@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.18
+> **Version :** 2.19
 
 # Decision Log
 
@@ -1435,3 +1435,169 @@ La Phase 3.7 est officiellement **CLOSE**. L'arbitrage de la prochaine étape (P
 8. **DEC-038.8 — Intentions d'architecture et budgets cibles (OQ-140, OQ-141, OQ-142, OQ-144) :** Cible de réutilisation exclusive du flux d'historique partagé `COMPETITION_WIDE` sans modification de `SportsDataProvider` ni `HistoryFilter`. Budgets cibles : $\le 2$ appels Application, $\le 5$ requêtes HTTP hard max, $O(1)$ réseau. Calculateur dédié pur `LeagueContextCalculator`. Frontière d'entrée (`historyByTeam` vs `historicalMatches`) ouverte jusqu'au Gate A.
 9. **DEC-038.9 — Intégration frontend (OQ-139, OQ-145, OQ-146) :** Bloc « Contexte championnat » placé immédiatement après `Season Strength` et avant `H2H contextualisé`. Ratios et écarts à 2 décimales, percentile en entier pourcentage, vrais zéros préservés. 9 états globaux frontend conservés.
 10. **DEC-038.10 — Gate A de faisabilité technique obligatoire :** Réalisation obligatoire d'un Gate A Phase 3.8 après fusion et audit post-fusion de DEC-038 pour vérifier la faisabilité, l'impact CPU et figer la frontière d'entrée avant la conception technique (DEC-039).
+
+---
+
+## DEC-039 — Phase 3.8 corrective prerequisite — Historical Corpus Integrity / Intégrité du corpus historique
+
+- **Date :** 2026-08-21
+- **Responsable :** Fondateur ABYSS
+- **Statut :** APPROUVÉE
+- **Nature :** `CORRECTIVE_FRAMING`
+- **Statut Phase 3.8 League Context :** `FROZEN_PENDING_CORRECTION`
+- **Document de référence :**
+  - `docs/03-technical-architecture/phase-3-8-historical-corpus-integrity-framing.md`
+- **Arbitrages Fondateur :** `CR-001` à `CR-012` approuvés formellement.
+
+### DEC-039.1 — Gel de Phase 3.8 et réattribution de DEC-039 (CR-001, CR-002)
+
+La Phase 3.8 reste gelée. Aucune conception technique League Context, aucun `LeagueContextCalculator` et aucune implémentation League Context ne sont autorisés avant la correction, la fusion et l'audit des deux blockers, puis la réexécution depuis zéro du Gate A Phase 3.8.
+
+Aucune décision de conception League Context nommée DEC-039 n'ayant été créée, le numéro DEC-039 est attribué au présent cadrage correctif transversal. Les références prospectives à une « DEC-039 League Context » dans DEC-038 et son document de cadrage sont supersédées uniquement quant au numéro et au séquencement ; les contrats produit DEC-038 restent préservés. La future conception technique League Context recevra un nouveau numéro DEC.
+
+### DEC-039.2 — Faits établis par l'audit correctif
+
+`ANOMALY_A_CONFIRMED=YES` et `ANOMALY_A_SEVERITY=BLOCKING`.
+
+L'Application émet l'appel historique mutualisé `getMatches(competitionCode, undefined, undefined, { seasonCount: 3 })`. Sur le chemin composé `Application -> InMemoryCache -> FootballDataOrgAdapter`, `InMemoryCache` ne déclare ni ne consomme `HistoryFilter`, ne le propage pas au provider décoré et transforme l'appel sans dates en fenêtre implicite `[now, now+7j)`. Sa clé ne tient pas compte de `HistoryFilter` et ne sépare pas les modes scheduled/history, créant un risque confirmé de collision. Le corpus effectif n'est donc pas `COMPETITION_WIDE_3_SEASONS`.
+
+`ANOMALY_B_CONFIRMED=YES` et `ANOMALY_B_SEVERITY=BLOCKING`.
+
+Le mapping football-data.org construit actuellement `seasonId = season-${matchDate.getUTCFullYear()}`. Ainsi, `2025-12-20` produit `season-2025` et `2026-01-10` produit `season-2026`, même si les deux matchs appartiennent à la saison sportive 2025/2026. Les traitements `TARGET_SEASON_ONLY` peuvent donc être incorrects. Le domaine dispose déjà d'une notion d'identité de saison ; aucun changement de domaine n'est actuellement prouvé nécessaire.
+
+`PREVIOUS_ASSUMPTION_INVALIDATED=YES`. Les Phases 3.2 à 3.7 sont `POTENTIALLY_AFFECTED` sur le chemin football-data.org réel. Les validations locales InMemory utilisaient un autre chemin et ne prouvent pas que tous les résultats historiques étaient faux. Les contrats produit historiques restent la cible :
+
+```text
+HISTORICAL_PRODUCT_CONTRACTS=PRESERVED
+REAL_PROVIDER_PATH_CONFORMANCE=CORRECTIVE_ACTION_REQUIRED
+HISTORICAL_DECISIONS_REWRITTEN=NO
+CORRECTIVE_AUDIT_REQUIRED=YES
+```
+
+Le Gate A Phase 3.8 initial est invalidé comme preuve suffisante.
+
+### DEC-039.3 — Structure corrective transversale (CR-003)
+
+Un seul chantier correctif transversal est créé, avec deux lots atomiques :
+
+- **Lot A — Cache History Transparency** ;
+- **Lot B — Sports Season Identity**.
+
+Les deux lots appartiennent au même chantier, mais restent séparables, testables, auditables et traçables. Leurs implémentations feront l'objet de PR distinctes.
+
+### DEC-039.4 — Cible architecturale du Lot A (CR-004, CR-005)
+
+L'option privilégiée est de rendre `InMemoryCache` sémantiquement transparent vis-à-vis du contrat `SportsDataProvider`.
+
+Le résultat contractuel futur devra préserver et propager sans transformation silencieuse `competitionCode`, `fromDate`, `toDate` et `HistoryFilter`. Un appel sans dates et sans `HistoryFilter` reste un appel sans dates. Un appel sans dates avec `HistoryFilter` reste un appel historique. Le cache ne doit plus inventer la fenêtre métier `[now, now+7j)`.
+
+```text
+CACHE_TRANSPARENCY_REQUIRED=YES
+CACHE_MUST_NOT_INVENT_BUSINESS_SEMANTICS=YES
+```
+
+DEC-039 ne verrouille ni signature TypeScript finale ni mécanisme d'implémentation : ils restent ouverts jusqu'à la conception technique corrective.
+
+### DEC-039.5 — Espaces de cache et supersession de DEC-008.3 (CR-006, CR-007)
+
+Les espaces de cache devront distinguer conceptuellement au minimum `range`, `current-season` et `history`. Le mode historique devra représenter canoniquement `seasonCount` et `seasonIds`. La forme exacte de la clé reste ouverte jusqu'à la conception corrective.
+
+```text
+CACHE_KEY_MUST_BE_HISTORY_FILTER_AWARE=YES
+CACHE_MODE_COLLISION_FORBIDDEN=YES
+HISTORICAL_DECISIONS_REWRITTEN=NO
+DEC_008_3_SUPERSEDED_FOR_PROVIDER_DECORATOR=YES
+```
+
+DEC-008.3 n'est ni effacée ni réécrite. Sa règle historique « sans dates → `[now, now+7j)` » et sa clé limitée à compétition/bornes sont supersédées pour le décorateur provider par la sémantique établie à compter de DEC-020 et par DEC-039. Le comportement des ranges explicitement bornés, le TTL de DEC-008.2, la gestion des erreurs et la déduplication `in-flight` de DEC-008.5 restent des contraintes de non-régression.
+
+### DEC-039.6 — Identité stable de saison sportive (CR-008)
+
+`Match.seasonId` doit représenter l'identité stable d'une saison sportive. Toute dérivation depuis l'année civile de `utcDate`, tout fallback silencieux `utcDate -> seasonId`, la séparation d'une saison traversant janvier en deux identités et la fusion de saisons sportives adjacentes sont interdits.
+
+```text
+STABLE_SPORTS_SEASON_ID_REQUIRED=YES
+```
+
+### DEC-039.7 — Source upstream ouverte et séparation des concepts (CR-009, CR-010)
+
+L'audit a prouvé que le mapping actuel est incorrect, mais n'a pas prouvé depuis les types exécutables actuels quelle source upstream constituera la solution finale.
+
+```text
+EXACT_UPSTREAM_SEASON_ID_SOURCE=OPEN_UNTIL_CORRECTIVE_GATE_A
+CANDIDATE_UPSTREAM_SOURCE=raw.season.id
+SEASON_ID_AND_PROVIDER_START_YEAR=DISTINCT_CONCEPTS
+```
+
+`DOMAIN_SEASON_ID` désigne l'identité stable d'une saison sportive. `PROVIDER_SEASON_START_YEAR` désigne la valeur éventuellement nécessaire à une requête provider `?season=YYYY`. Il est interdit de parser arbitrairement l'un depuis l'autre sans contrat démontré. Le Gate A correctif devra déterminer la source exacte de ces deux données et vérifier si les données upstream déjà disponibles suffisent.
+
+### DEC-039.8 — Gate A correctif obligatoire
+
+Après fusion documentaire et audit post-fusion de DEC-039, un Gate A correctif 100 % read-only devra vérifier au minimum :
+
+- **Lot A — contrôles 1 à 15 :** signature exacte du cache ; propagation de `competitionCode`, `fromDate`, `toDate` et `HistoryFilter` ; sémantiques sans dates, current-season et history ; `seasonCount` ; `seasonIds` ; clé canonique ; absence de collision scheduled/current-season/history ; TTL ; déduplication ; budgets Application et HTTP ; absence de N+1 ; faisabilité du test composé `Application -> Cache -> Adapter fake`.
+- **Lot B — contrôles 16 à 31 :** structure réelle des payloads upstream déjà modélisés ; présence éventuelle d'une identité stable, de `season.id`, `season.startDate` et `season.endDate` ; source future exacte de `Match.seasonId` ; source future exacte du start year provider ; découplage identité/query year ; saison traversant janvier ; saisons adjacentes ; trois saisons sportives H2H ; `TARGET_SEASON_ONLY` ; carryover N-1 de Schedule Load ; besoin réel d'un HTTP supplémentaire ; besoin réel d'un changement de port ; besoin réel d'un changement de domaine.
+
+Le Gate est vert uniquement si le cache peut devenir transparent sans régression critique, si une source stable de saison sportive est disponible avec une architecture compatible, si aucun blocker ne demeure et si les budgets restent maîtrisés ou si tout changement nécessaire est soumis à un nouvel arbitrage explicite.
+
+### DEC-039.9 — Tests futurs obligatoires
+
+Le plan futur du Lot A couvrira la propagation de tous les paramètres, les trois modes de requête, des clés sensibles à `seasonCount` et `seasonIds`, la reproduction puis la correction de la collision scheduled/history, ainsi que la non-régression du TTL, de la déduplication, des appels provider et du N+1.
+
+Le plan futur du Lot B couvrira une même saison sportive sur deux années civiles, deux saisons adjacentes distinctes, `TARGET_SEASON_ONLY`, le comptage H2H par saisons sportives, le carryover N-1 de Schedule Load, la séparation entre identité domaine et année de requête provider, l'absence de fallback par année civile et l'absence d'HTTP supplémentaire non justifié.
+
+Après les deux lots, un test local composé obligatoire `Application -> InMemoryCache -> fake/controlled Adapter` devra prouver que l'appel scheduled reste scheduled, que l'appel history reste history, que `HistoryFilter`, `seasonCount` et `seasonIds` atteignent le leaf provider, qu'un corpus historique n'est pas remplacé par une entrée scheduled et qu'une même saison sportive multi-year conserve un même `seasonId`.
+
+### DEC-039.10 — Budgets, réseau et protections (CR-012)
+
+Les valeurs suivantes sont conservées comme cibles à reprouver, et non comme preuves héritées de l'ancien Gate :
+
+```text
+APPLICATION_PROVIDER_INVOCATIONS_MAX_TARGET=2
+HISTORY_PROVIDER_INVOCATIONS_TARGET=1
+HTTP_HARD_MAX_TARGET=5
+N_PLUS_ONE_TARGET=NO
+REAL_CALLS=0
+```
+
+Aucun nouvel endpoint, appel provider par équipe, cache global/persistant, retry ou dépendance n'est autorisé. Aucun changement de `SportsDataProvider`, `HistoryFilter`, du domaine ou des budgets n'est autorisé sans nécessité démontrée par le Gate A correctif puis arbitrage explicite.
+
+Aucun appel réel à football-data.org ou Sportmonks n'est nécessaire ni autorisé tant qu'une preuve statique ou locale suffit. Si la preuve disponible est insuffisante, le Gate doit s'arrêter et demander un nouvel arbitrage ; il ne peut pas déclencher implicitement un real-call.
+
+### DEC-039.11 — Séquence obligatoire (CR-011)
+
+La séquence arrêtée est :
+
+1. DEC-039 — cadrage correctif ;
+2. audit pré-fusion DEC-039 ;
+3. fusion documentaire avec `Create a merge commit` ;
+4. audit post-fusion DEC-039 ;
+5. Gate A correctif 100 % read-only ;
+6. conception technique corrective sous une nouvelle DEC ;
+7. audit, fusion et audit post-fusion de cette conception ;
+8. implémentation Lot A ;
+9. audit pré-fusion Lot A ;
+10. fusion Lot A ;
+11. audit post-fusion Lot A ;
+12. implémentation Lot B ;
+13. audit pré-fusion Lot B ;
+14. fusion Lot B ;
+15. audit post-fusion Lot B ;
+16. test et audit E2E composé local ;
+17. baseline complète ;
+18. réexécution depuis zéro du Gate A Phase 3.8 League Context ;
+19. reprise de League Context uniquement si ce Gate est vert.
+
+Les étapes 8 et 12 restent conditionnées à une autorisation explicite du Fondateur après fusion et audit post-fusion de la conception corrective ; cette séquence ne vaut pas autorisation d'implémenter.
+
+```text
+LOT_A_IMPLEMENTATION_PR_SEPARATE=YES
+LOT_B_IMPLEMENTATION_PR_SEPARATE=YES
+LEAGUE_CONTEXT_GATE_A_RERUN_REQUIRED=YES
+```
+
+### DEC-039.12 — Nature documentaire et prochaine étape
+
+DEC-039 est exclusivement un cadrage correctif. Elle n'autorise aucune correction de code, aucune modification du cache, de l'adapter football-data.org, du port, de `HistoryFilter` ou du domaine, aucune création de `LeagueContextCalculator` et aucune conception technique corrective.
+
+Après ouverture de la PR documentaire DEC-039, la prochaine étape autorisée est exclusivement son audit pré-fusion. Aucun merge automatique n'est autorisé.
