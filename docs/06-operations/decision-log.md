@@ -1688,23 +1688,18 @@ SEASON_IDS_CACHE_ORDER_POLICY=PRESERVE
 SEASON_IDS_CACHE_DUPLICATE_POLICY=PRESERVE
 ```
 
-### DEC-040.5 — Lot A : TTL, déduplication, erreurs et télémétrie
+### DEC-040.5 — Lot A : TTL, déduplication et erreurs
 
 Le cache conserve son TTL unique, sa valeur par défaut `600_000 ms`, le cache de tous les succès y compris `[]`, l'absence de cache des erreurs, l'interdiction de stale-on-error, la déduplication `in-flight` par clé et le nettoyage dans `finally`.
 
-La télémétrie cache devra devenir une union discriminée par le champ obligatoire `cacheMode`, dont les valeurs sont `range`, `current-season` et `history`. Elle représentera uniquement les dates réellement reçues, sans fabriquer de bornes. `cache_bypass` est réservé au mode `range` avec une borne sans filtre ; aucun appel portant un `HistoryFilter` ne peut produire cet événement. Elle n'exposera ni clé canonique complète, ni filtre brut, ni tableau brut `seasonIds`, ni donnée sensible. La télémétrie provider reste inchangée.
+DEC-040 n'impose aucune évolution du contrat de télémétrie. Une éventuelle instrumentation future des modes de cache reste hors périmètre et nécessitera un arbitrage distinct si elle modifie le contrat observable.
 
 ```text
 TTL_CHANGE_REQUIRED=NO
 DEDUP_CHANGE_REQUIRED=NO
 DEFAULT_TTL_MS=600000
 ERROR_CACHE_POLICY_CHANGE_REQUIRED=NO
-CACHE_TELEMETRY_CHANGE_REQUIRED=YES
-CACHE_TELEMETRY_MODE_FIELD=cacheMode
-CACHE_TELEMETRY_MODE_VALUES=range,current-season,history
-CACHE_TELEMETRY_DATE_POLICY=ONLY_ACTUAL_ARGUMENTS
-CACHE_BYPASS_MODE_VALUES=range
-PROVIDER_TELEMETRY_CHANGE_REQUIRED=NO
+TELEMETRY_CHANGE_REQUIRED=NO
 ```
 
 ### DEC-040.6 — Lot B : schéma provider et identité domaine
@@ -1814,7 +1809,7 @@ La stratégie catalogue nominale remplace, pour le futur chemin corrigé, l'anci
 
 ### DEC-040.11 — Validation future
 
-Le Lot A devra tester la signature complète, la propagation par identité, tous les modes et combinaisons de dates, les cas from-only/to-only avec filtre dans `HISTORY`, les namespaces, les collisions, les contenus distincts, l'ordre et les doublons de `seasonIds`, la granularité UTC, le TTL, les succès `[]`, les erreurs, la déduplication, le nettoyage `in-flight` et chaque événement télémétrique mode-aware sans fuite.
+Le Lot A devra tester la signature complète, la propagation par identité, tous les modes et combinaisons de dates, les cas from-only/to-only avec filtre dans `HISTORY`, les namespaces, les collisions, les contenus distincts, l'ordre et les doublons de `seasonIds`, la granularité UTC, le TTL, les succès `[]`, les erreurs, la déduplication et le nettoyage `in-flight`.
 
 Le Lot B devra tester le schéma saison, les erreurs contrôlées, `String(raw.season.id)`, les cas cross-year, le catalogue, `seasonCount` 1/2/3, les saisons non contiguës, les catalogues incomplets, les mismatches, les IDs opaques, leur ordre et leurs doublons, les comptes HTTP et les consommateurs domaine.
 
@@ -1828,7 +1823,7 @@ Application
 
 devra prouver la séparation scheduled/history, la propagation exacte du filtre, deux appels Application maximum et l'absence de N+1. Les tests adapter contrôleront séparément le mapping football-data.org simulé. `REAL_CALLS=0`.
 
-Les estimations sont `3_TO_5` fichiers pour le Lot A et `3_TO_4` pour le Lot B ; elles ne constituent pas des contrats durs.
+Le Lot A ne contractualise aucun nombre exact de fichiers : seuls les fichiers nécessaires au correctif actuel sont prévus, avec tout élargissement à justifier lors de l'autorisation d'implémentation. L'estimation `3_TO_4` du Lot B reste non contractuelle.
 
 ### DEC-040.12 — Exclusions, gouvernance et gel
 

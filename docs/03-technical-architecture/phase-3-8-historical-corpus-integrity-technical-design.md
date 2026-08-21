@@ -257,40 +257,14 @@ IN_FLIGHT_DEDUPLICATION=PRESERVE_PER_CANONICAL_KEY
 IN_FLIGHT_CLEANUP=FINALLY
 ```
 
-## 8. Lot A — Télémétrie mode-aware
+## 8. Lot A — Télémétrie hors périmètre
 
-Les événements cache actuels exigent des champs `dateFrom` et `dateTo`. Cette forme ne peut pas décrire honnêtement `CURRENT_SEASON` ou un appel `HISTORY` sans dates après suppression de la fenêtre synthétique.
+Le correctif fonctionnel v1 n'exige aucune évolution de la télémétrie existante. DEC-040 n'introduit ni nouveau champ, ni nouvelle union, ni nouvelle métrique, ni nouvelle dimension publique, ni nouveau contrat observable. `src/shared/observability/telemetry.ts` et son test unitaire ne font pas partie du périmètre prévu du Lot A.
 
-Le Lot A devra rendre la télémétrie cache discriminée par un champ obligatoire `cacheMode` :
-
-```typescript
-type CacheQueryMode = 'range' | 'current-season' | 'history';
-```
-
-Les règles sont :
-
-- `range` conserve les deux jours UTC ;
-- `current-season` ne contient aucune date métier ;
-- `history` ne contient que les dates réellement fournies ;
-- `cache_bypass` existe uniquement pour le mode conceptuel `range` avec une borne sans filtre et conserve l'information de la borne présente ;
-- aucun événement ne recrée une date absente ;
-- aucun événement n'expose la clé canonique complète ;
-- aucun événement n'expose le filtre brut ni le tableau brut `seasonIds` ;
-- aucun token, header ou payload provider n'est ajouté.
-
-`cache_hit`, `cache_miss`, `cache_expired` et `cache_in_flight_join` deviennent une union discriminée par `cacheMode`. Dans la variante `range`, `dateFrom` et `dateTo` restent obligatoires au jour UTC. Dans la variante `current-season`, ces propriétés sont absentes. Dans la variante `history`, chacune est absente ou présente selon l'argument réellement reçu, sous sa représentation UTC canonique. `cache_bypass` accepte uniquement `cacheMode: 'range'`, conserve `providedBound` et n'invente pas la borne opposée. Aucun appel portant un `HistoryFilter` ne peut produire `cache_bypass`.
-
-L'observer console peut conserver son comportement de sérialisation ; aucun changement de télémétrie provider n'est requis.
+Une éventuelle instrumentation future des modes de cache reste hors périmètre de DEC-040 et nécessitera un arbitrage distinct si elle modifie le contrat observable. Elle ne constitue ni un prérequis d'implémentation, ni un critère d'acceptation du correctif actuel.
 
 ```text
-CACHE_TELEMETRY_CHANGE_REQUIRED=YES
-CACHE_TELEMETRY_MODE_FIELD=cacheMode
-CACHE_TELEMETRY_MODE_VALUES=range,current-season,history
-CACHE_TELEMETRY_DATE_POLICY=ONLY_ACTUAL_ARGUMENTS
-CACHE_BYPASS_MODE_VALUES=range
-PROVIDER_TELEMETRY_CHANGE_REQUIRED=NO
-CACHE_FULL_KEY_TELEMETRY_EXPOSURE=NO
-RAW_HISTORY_FILTER_TELEMETRY_EXPOSURE=NO
+TELEMETRY_CHANGE_REQUIRED=NO
 ```
 
 ## 9. Lot A — Plan de tests futur
@@ -332,9 +306,7 @@ L'implémentation du Lot A devra ajouter ou adapter des tests unitaires prouvant
 - déduplication simultanée par clé ;
 - absence de déduplication entre clés distinctes ;
 - nettoyage `in-flight` après succès et rejet ;
-- événements `cache_hit`, `cache_miss`, `cache_expired` et `cache_in_flight_join` vérifiés pour chaque mode ;
-- `cache_bypass` vérifié pour une borne from-only et to-only, sans filtre, sans borne inventée ;
-- événements télémétriques conformes et sans fuite.
+- bypass fonctionnel pour une borne from-only et to-only sans filtre : aucune entrée cache, aucune promesse partagée et aucune borne opposée inventée.
 
 Les tests existants qui imposent `sans dates -> now/+7 jours` devront être remplacés, car ils verrouillent précisément le comportement supersédé par DEC-020 et ciblé par ce correctif.
 
@@ -366,18 +338,11 @@ Les fichiers probables sont :
 
 ```text
 src/infrastructure/cache/memory/in-memory-cache.ts
-src/shared/observability/telemetry.ts
 tests/unit/in-memory-cache.test.ts
-tests/unit/telemetry.test.ts
 tests/integration/analysis.test.ts
 ```
 
-```text
-LOT_A_EXPECTED_FILE_COUNT_RANGE=3_TO_5
-LOT_A_MOST_LIKELY_FILE_COUNT=5
-```
-
-Cette estimation n'est pas un contrat dur. Tout élargissement structurel devra être justifié lors de l'autorisation d'implémentation.
+Cette liste n'est pas un contrat de nombre exact. Un autre fichier ne pourra être ajouté que s'il est réellement nécessaire à la conception existante et si cet élargissement est justifié lors de l'autorisation d'implémentation.
 
 ## 10. Lot B — Schémas privés football-data.org
 
