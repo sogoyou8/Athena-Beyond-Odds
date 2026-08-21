@@ -1,5 +1,5 @@
 > **Statut :** Mis à jour
-> **Version :** 2.17
+> **Version :** 2.18
 
 # Decision Log
 
@@ -1411,3 +1411,27 @@ Le Match Center intègre désormais 6 briques analytiques purement descriptives,
 
 ### 6. Statut
 La Phase 3.7 est officiellement **CLOSE**. L'arbitrage de la prochaine étape (Phase 3.8) fera l'objet d'une décision séparée.
+
+---
+
+## DEC-038 — Phase 3.8 — Cadrage League Context / Contexte championnat
+
+- **Date :** 2026-08-21
+- **Responsable :** Fondateur ABYSS
+- **Statut :** Approuvée par le Fondateur
+- **Documents de référence :**
+  - `docs/03-technical-architecture/phase-3-8-league-context-framing.md`
+  - Arbitrages Fondateur OQ-126 à OQ-149 approuvés formellement
+
+### Résumé des arbitrages et du cadrage DEC-038
+
+1. **DEC-038.1 — Objet et nature descriptive (OQ-126, OQ-127, OQ-138) :** Cadrage de la septième brique analytique « League Context / Positionnement relatif dans la compétition » (nom UI : « Contexte championnat »). Répond strictement à : *« Comment les statistiques de cette équipe se situent-elles par rapport aux autres équipes de la même compétition à la date du match cible ? »*. Brique 100% descriptive, déterministe, explicable et non prédictive. Zéro label qualitatif subjectif.
+2. **DEC-038.2 — Snapshot temporel strict et étanchéité (OQ-126, OQ-127) :** `STRICT_TARGET_DATE_SNAPSHOT = YES` (matchs historiques avec `utcDate < targetMatch.utcDate`), `TARGET_SEASON_ONLY = YES` (zéro carryover N-1 en v1). Zéro data leakage, prêt pour les futurs backtests chronologiques.
+3. **DEC-038.3 — Population de référence et seuil de représentativité (OQ-128, OQ-135) :** `REFERENCE_POPULATION = ALL_ELIGIBLE_COMPETITION_TEAMS` (toutes les équipes ayant au moins un match éligible terminé dans la compétition avant le cutoff du match cible). Seuil minimal fixé à $\text{populationSize} \ge 4$ pour l'état `AVAILABLE` (sinon `INSUFFICIENT_DATA`).
+4. **DEC-038.4 — Métriques évaluées et périmètre global (OQ-129, OQ-136) :** `pointsPerMatch` et `goalDifferencePerMatch` uniquement. Restreint au profil global (`OVERALL_ONLY = YES`) pour la v1.
+5. **DEC-038.5 — Sorties relatives, classement et ex æquo (OQ-130, OQ-131, OQ-132) :** Sortie comprenant la valeur brute, la moyenne de la ligue, le rang, la taille de population, le percentile et l'écart à la moyenne. Classement décroissant (`DESCENDING_RANK`, rang 1 = meilleure valeur). Gestion stricte des égalités en `DENSE_RANK` (sans saut dans la numérotation).
+6. **DEC-038.6 — Règle de conception du percentile et moyenne ligue (OQ-133, OQ-134) :** Le percentile doit être déterministe, documenté et sans data leakage (la formule exacte sera arbitrée en DEC-039). Moyenne de la compétition calculée à poids égal par équipe (`EQUAL_TEAM_WEIGHT_AVERAGE`, non pondérée par le nombre de matchs).
+7. **DEC-038.7 — Interdictions formelles et périmètres exclus (OQ-137, OQ-147, OQ-148, OQ-149) :** Interdiction absolue de score composite (`NO_COMPOSITE_SCORE = YES`). Ne remplace pas le classement officiel de la ligue. Travel différé (`TRAVEL_DEFERRED = YES`). Power Rating et marchés de paris/cotes strictement hors périmètre.
+8. **DEC-038.8 — Intentions d'architecture et budgets cibles (OQ-140, OQ-141, OQ-142, OQ-144) :** Cible de réutilisation exclusive du flux d'historique partagé `COMPETITION_WIDE` sans modification de `SportsDataProvider` ni `HistoryFilter`. Budgets cibles : $\le 2$ appels Application, $\le 5$ requêtes HTTP hard max, $O(1)$ réseau. Calculateur dédié pur `LeagueContextCalculator`. Frontière d'entrée (`historyByTeam` vs `historicalMatches`) ouverte jusqu'au Gate A.
+9. **DEC-038.9 — Intégration frontend (OQ-139, OQ-145, OQ-146) :** Bloc « Contexte championnat » placé immédiatement après `Season Strength` et avant `H2H contextualisé`. Ratios et écarts à 2 décimales, percentile en entier pourcentage, vrais zéros préservés. 9 états globaux frontend conservés.
+10. **DEC-038.10 — Gate A de faisabilité technique obligatoire :** Réalisation obligatoire d'un Gate A Phase 3.8 après fusion et audit post-fusion de DEC-038 pour vérifier la faisabilité, l'impact CPU et figer la frontière d'entrée avant la conception technique (DEC-039).
